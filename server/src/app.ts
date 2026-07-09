@@ -17,7 +17,6 @@ import { RepositoryController } from "./controllers/repository.controller.js";
 import { WorkspaceController } from "./controllers/workspace.controller.js";
 import { WorkspaceManagementController } from "./controllers/workspace-management.controller.js";
 import { initializePassport } from "./services/passport/index.js";
-import "./types/express.d.js";
 
 export function createApp() {
   const config = loadEnvConfig();
