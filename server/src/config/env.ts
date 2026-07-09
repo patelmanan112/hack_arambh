@@ -9,6 +9,7 @@ export interface EnvConfig {
     callbackUrl: string;
   };
   isProduction: boolean;
+  mongodbUri: string;
 }
 
 function requireEnv(key: string, devDefault?: string): string {
@@ -61,5 +62,6 @@ export function loadEnvConfig(): EnvConfig {
       callbackUrl,
     },
     isProduction,
+    mongodbUri: requireEnv("MONGODB_URI", "mongodb://localhost:27017/recall_iq"),
   };
 }

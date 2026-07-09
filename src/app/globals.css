@@ -18,16 +18,16 @@
 }
 
 :root {
-  --background: #050505;
-  --foreground: #f5f5f5;
+  --background: #09090B;
+  --foreground: #FAFAFA;
   
-  --primary: #378274;
-  --primary-hover: #489b8c;
-  --primary-foreground: #ffffff;
+  --primary: #7C3AED;
+  --primary-hover: #6D28D9;
+  --primary-foreground: #FFFFFF;
   
-  --surface: #111111;
-  --surface-hover: #1a1a1a;
-  --border: #222222;
+  --surface: #18181B;
+  --surface-hover: #27272A;
+  --border: #27272A;
 }
 
 body {

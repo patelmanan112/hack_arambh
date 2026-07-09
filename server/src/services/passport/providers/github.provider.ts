@@ -24,10 +24,12 @@ export function createGitHubProvider(config: EnvConfig): OAuthProviderDefinition
             clientID: config.github.clientId,
             clientSecret: config.github.clientSecret,
             callbackURL: config.github.callbackUrl,
-            scope: ["user:email"],
+            scope: ["user:email", "repo"],
+            passReqToCallback: true as const,
           },
           (
-            _accessToken: string,
+            req: Express.Request,
+            accessToken: string,
             _refreshToken: string,
             profile: GitHubStrategyProfile,
             done: (error: Error | null, user?: Express.User) => void
@@ -35,6 +37,8 @@ export function createGitHubProvider(config: EnvConfig): OAuthProviderDefinition
             try {
               const normalized = normalizeGitHubProfile(profile);
               const user = toAuthUser("github", normalized);
+              // Store access token in session for GitHub API calls
+              (req as Express.Request & { session: { githubAccessToken?: string } }).session.githubAccessToken = accessToken;
               done(null, user);
             } catch (error) {
               done(error as Error);

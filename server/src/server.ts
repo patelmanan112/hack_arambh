@@ -2,17 +2,22 @@ import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
 
-const serverRoot = path.dirname(fileURLToPath(import.meta.url));
+const serverRoot = path.join(path.dirname(fileURLToPath(import.meta.url)), "..");
 
 dotenv.config({ path: path.join(serverRoot, ".env") });
 dotenv.config({ path: path.join(serverRoot, "..", ".env.local") });
 
 import { createApp } from "./app.js";
+import { connectDB } from "./config/db.js";
 
-try {
-  const { app, config } = createApp();
+async function startServer() {
+  try {
+    const { app, config } = createApp();
+    
+    // Connect to database
+    await connectDB(config);
 
-  app.listen(config.port, () => {
+    app.listen(config.port, () => {
     console.log(`[server] Auth API running on http://localhost:${config.port}`);
     console.log(`[server] GitHub callback URL: ${config.github.callbackUrl}`);
     console.log(`[server] Client URL: ${config.clientUrl}`);
@@ -31,3 +36,6 @@ try {
   );
   process.exit(1);
 }
+}
+
+startServer();

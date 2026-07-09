@@ -34,13 +34,20 @@ export class AuthController {
     passport.authenticate(getGitHubStrategyName(), {
       failureRedirect: `${this.config.clientUrl}/login?error=auth_failed`,
       session: true,
+      keepSessionInfo: true,
     })(req, res, (err: unknown) => {
       if (err) {
         next(err);
         return;
       }
 
-      res.redirect(`${this.config.clientUrl}/dashboard?auth=success`);
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          next(saveErr);
+          return;
+        }
+        res.redirect(`${this.config.clientUrl}/onboarding/select-repositories?auth=success`);
+      });
     });
   };
 
