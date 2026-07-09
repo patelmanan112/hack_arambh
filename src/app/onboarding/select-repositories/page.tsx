@@ -13,6 +13,7 @@ import { RepositorySelectionFooter } from "@/components/RepositorySelectionFoote
 import { RepositorySkeleton } from "@/components/RepositorySkeleton"
 import { Button } from "@/components/ui/Button"
 import { cn } from "@/lib/utils"
+import { API_BASE_URL } from "@/lib/api"
 
 import type { GitHubRepo, FilterOption, SortOption, GetReposResponse } from "@/types/github"
 
@@ -84,7 +85,7 @@ export default function SelectRepositoriesPage() {
   const { data, isLoading, error, refetch } = useQuery<GetReposResponse, Error>({
     queryKey: ["github-repos"],
     queryFn: async () => {
-      const res = await fetch("/api/github/repos", {
+      const res = await fetch(`${API_BASE_URL}/github/repos`, {
         credentials: "include"
       })
       if (!res.ok) {
@@ -200,7 +201,7 @@ export default function SelectRepositoriesPage() {
     setIsSubmitting(true)
 
     try {
-      const res = await fetch("/api/github/select-repositories", {
+      const res = await fetch(`${API_BASE_URL}/github/select-repositories`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ repositories: Array.from(selectedRepos) }),

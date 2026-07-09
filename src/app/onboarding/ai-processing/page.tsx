@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "framer-motion"
 import { useRouter } from "next/navigation"
 import { Check, AlertCircle, Database, GitBranch, GitPullRequest, MessageSquare, Users, FileText, Zap, ChevronRight } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { API_BASE_URL } from "@/lib/api"
 
 // ──────────────────────────────────────────────
 // Types
@@ -151,7 +152,7 @@ function RepoProcessingCard({
 
     const pollJob = async () => {
       try {
-        const res = await fetch(`/api/repository/job/${jobId}`, { credentials: "include" })
+        const res = await fetch(`${API_BASE_URL}/repository/job/${jobId}`, { credentials: "include" })
         if (!res.ok) return
         const data = await res.json()
         const job = data.data
@@ -314,9 +315,9 @@ export default function AIProcessingPage() {
     const init = async () => {
       try {
         // 1. Get selected repos from session
-        const selRes = await fetch("/api/github/selected-repositories", { credentials: "include" })
-        if (!selRes.ok) throw new Error("Could not load selected repositories")
-        const selData = await selRes.json()
+        const res = await fetch(`${API_BASE_URL}/github/selected-repositories`, { credentials: "include" })
+        if (!res.ok) throw new Error("Could not load selected repositories")
+        const selData = await res.json()
         const repos: string[] = selData.data?.selected ?? []
 
         if (repos.length === 0) {
@@ -332,7 +333,7 @@ export default function AIProcessingPage() {
 
         if (!workspaceId) {
           // Fallback: fetch user's workspaces from the API
-          const wsRes = await fetch("/api/workspaces", { credentials: "include" })
+          const wsRes = await fetch(`${API_BASE_URL}/workspaces`, { credentials: "include" })
           if (wsRes.ok) {
             const wsData = await wsRes.json()
             if (wsData.success && wsData.data?.workspaces?.length > 0) {
@@ -360,7 +361,7 @@ export default function AIProcessingPage() {
         await Promise.allSettled(
           repos.map(async (repoFullName) => {
             try {
-              const res = await fetch("/api/repository/process", {
+              const res = await fetch(`${API_BASE_URL}/repository/process`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 credentials: "include",
