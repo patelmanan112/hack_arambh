@@ -13,29 +13,31 @@ import { connectDB } from "./config/db.js";
 async function startServer() {
   try {
     const { app, config } = createApp();
-    
-    // Connect to database
-    await connectDB(config);
+
+    const dbConnected = await connectDB(config);
+    if (!dbConnected) {
+      console.warn("[server] Continuing without MongoDB. Database-backed routes may return errors until the database is reachable.");
+    }
 
     app.listen(config.port, () => {
-    console.log(`[server] Auth API running on http://localhost:${config.port}`);
-    console.log(`[server] GitHub callback URL: ${config.github.callbackUrl}`);
-    console.log(`[server] Client URL: ${config.clientUrl}`);
+      console.log(`[server] Auth API running on http://localhost:${config.port}`);
+      console.log(`[server] GitHub callback URL: ${config.github.callbackUrl}`);
+      console.log(`[server] Client URL: ${config.clientUrl}`);
 
-    if (!config.github.clientId.startsWith("gh") && config.github.clientId.includes("your_")) {
-      console.warn(
-        "[server] WARNING: GITHUB_CLIENT_ID looks like a placeholder. Update server/.env with your GitHub OAuth App credentials."
-      );
-    }
-  });
-} catch (error) {
-  console.error("[server] Failed to start:");
-  console.error(error instanceof Error ? error.message : error);
-  console.error(
-    "\nSetup: copy server/.env.example to server/.env and add your GitHub OAuth credentials."
-  );
-  process.exit(1);
-}
+      if (!config.github.clientId.startsWith("gh") && config.github.clientId.includes("your_")) {
+        console.warn(
+          "[server] WARNING: GITHUB_CLIENT_ID looks like a placeholder. Update server/.env with your GitHub OAuth App credentials."
+        );
+      }
+    });
+  } catch (error) {
+    console.error("[server] Failed to start:");
+    console.error(error instanceof Error ? error.message : error);
+    console.error(
+      "\nSetup: copy server/.env.example to server/.env and add your GitHub OAuth credentials."
+    );
+    process.exit(1);
+  }
 }
 
 startServer();
