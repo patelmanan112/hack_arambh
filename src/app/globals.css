@@ -18,20 +18,45 @@
 }
 
 :root {
-  --background: #09090B;
+  /* Pure Black Premium Theme */
+  --background: #000000;
   --foreground: #FAFAFA;
   
   --primary: #7C3AED;
   --primary-hover: #6D28D9;
   --primary-foreground: #FFFFFF;
   
-  --surface: #18181B;
-  --surface-hover: #27272A;
-  --border: #27272A;
+  /* Glassmorphism surfaces */
+  --surface: rgba(24, 24, 27, 0.4);
+  --surface-hover: rgba(39, 39, 42, 0.6);
+  --border: rgba(255, 255, 255, 0.08);
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
   font-family: var(--font-sans);
+  /* Optional: soft noise overlay or radial gradient could be added here for depth */
+  background-image: radial-gradient(circle at 50% 0%, rgba(124, 58, 237, 0.05), transparent 60%);
+  background-attachment: fixed;
+}
+
+/* Custom Utilities for Premium Look */
+@layer utilities {
+  .glass {
+    @apply bg-surface border border-border backdrop-blur-md;
+  }
+  .glass-panel {
+    @apply bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.05)] backdrop-blur-xl shadow-lg shadow-black/50;
+  }
+  .text-glow {
+    text-shadow: 0 0 20px rgba(255, 255, 255, 0.3);
+  }
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .hide-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }
