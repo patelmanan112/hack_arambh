@@ -11,9 +11,31 @@ const OAUTH_BASE_URL =
 
 const TOKEN_KEY = "recalliq_jwt";
 
+function readTokenFromUrl(): string | null {
+  if (typeof window === "undefined") return null;
+
+  const params = new URLSearchParams(window.location.search);
+  const tokenFromUrl = params.get("token");
+
+  if (tokenFromUrl) {
+    setToken(tokenFromUrl);
+
+    const url = new URL(window.location.href);
+    url.searchParams.delete("token");
+    window.history.replaceState({}, "", url.toString());
+    return tokenFromUrl;
+  }
+
+  return null;
+}
+
 export function getToken(): string | null {
   if (typeof window === "undefined") return null;
-  return localStorage.getItem(TOKEN_KEY);
+
+  const storedToken = localStorage.getItem(TOKEN_KEY);
+  if (storedToken) return storedToken;
+
+  return readTokenFromUrl();
 }
 
 export function setToken(token: string): void {

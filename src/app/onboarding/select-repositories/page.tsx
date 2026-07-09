@@ -194,6 +194,9 @@ function SelectRepositoriesContent() {
     setIsSubmitting(true)
     try {
       const token = getToken()
+      if (!token) {
+        throw new Error("Authentication expired. Please sign in again.")
+      }
       
       let activeWorkspaceId = workspaceId;
 
