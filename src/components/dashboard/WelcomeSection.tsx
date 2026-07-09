@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/Button"
-import { MessageSquare, UploadCloud, GitBranch, Slack } from "lucide-react"
+import { MessageSquare, UploadCloud, GitBranch } from "lucide-react"
 
 export function WelcomeSection() {
   return (
