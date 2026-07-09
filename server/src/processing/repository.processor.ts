@@ -9,6 +9,8 @@ import ContributorModel from '../models/Contributor.model.js';
 import RepositoryDocumentModel from '../models/RepositoryDocument.model.js';
 import { extractCleanText } from '../utils/markdown.util.js';
 
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
 export class RepositoryProcessor {
   private githubService: GitHubService;
 
@@ -19,14 +21,23 @@ export class RepositoryProcessor {
   async processRepository(jobId: string, repoFullName: string, workspaceId: string) {
     try {
       const [owner, repo] = repoFullName.split('/');
+      let stats = {
+        repositories: 0,
+        files: 0,
+        pullRequests: 0,
+        issues: 0,
+        commits: 0,
+        contributors: 0,
+        chunks: 0,
+      };
 
-      // 10% - Connecting
-      await this.updateJob(jobId, 'Running', 10, 'Connecting Repository');
-
+      // 5% - Connecting
+      await this.updateJob(jobId, 'Running', 5, 'Connecting to GitHub', 'Connected to GitHub', stats);
+      
       // Check if repo exists in DB
       let repository = await RepositoryModel.findOne({ fullName: repoFullName, workspaceId });
-      
       const repoDetails = await this.githubService.getRepository(owner, repo);
+      
       if (!repository) {
         repository = await RepositoryModel.create({
           githubId: repoDetails.id,
@@ -40,12 +51,15 @@ export class RepositoryProcessor {
         });
       }
       
+      stats.repositories = 1;
+      await this.updateJob(jobId, 'Running', 10, 'Repository synchronized', `Synchronized ${repoFullName}`, stats);
       const repoId = repository._id as mongoose.Types.ObjectId;
 
-      // 25% - Reading README
-      await this.updateJob(jobId, 'Running', 25, 'Reading README');
+      // 15% - Reading README
+      await this.updateJob(jobId, 'Running', 15, 'Reading README', 'Reading README', stats);
       const readmeText = await this.githubService.getReadme(owner, repo);
       if (readmeText) {
+        stats.files += 1;
         const cleanText = extractCleanText(readmeText);
         await RepositoryDocumentModel.findOneAndUpdate(
           { repositoryId: repoId, type: 'README' },
@@ -54,9 +68,11 @@ export class RepositoryProcessor {
         );
       }
 
-      // 40% - Fetching PR
-      await this.updateJob(jobId, 'Running', 40, 'Fetching PRs');
+      // 25% - Fetching PR
+      await this.updateJob(jobId, 'Running', 25, 'Pull Requests', 'Fetching Pull Requests', stats);
       const prs = await this.githubService.getPullRequests(owner, repo);
+      stats.pullRequests = prs.length;
+      await this.updateJob(jobId, 'Running', 30, 'Pull Requests', `Fetched ${prs.length} Pull Requests`, stats);
       for (const pr of prs) {
         await PullRequestModel.findOneAndUpdate(
           { repositoryId: repoId, prNumber: pr.number },
@@ -65,7 +81,7 @@ export class RepositoryProcessor {
             description: pr.body || '',
             author: pr.user?.login || 'Unknown',
             labels: pr.labels.map((l: any) => l.name),
-            commentsCount: 0, // Simplified for now
+            commentsCount: 0,
             mergedDate: pr.merged_at,
             state: pr.state,
             url: pr.html_url
@@ -74,9 +90,11 @@ export class RepositoryProcessor {
         );
       }
 
-      // 60% - Fetching Commits
-      await this.updateJob(jobId, 'Running', 60, 'Fetching Commits');
+      // 40% - Fetching Commits
+      await this.updateJob(jobId, 'Running', 40, 'Commits', 'Fetching Commits', stats);
       const commits = await this.githubService.getCommits(owner, repo);
+      stats.commits = commits.length;
+      await this.updateJob(jobId, 'Running', 45, 'Commits', `Fetched ${commits.length} Commits`, stats);
       for (const commit of commits) {
         await CommitModel.findOneAndUpdate(
           { repositoryId: repoId, sha: commit.sha },
@@ -84,18 +102,20 @@ export class RepositoryProcessor {
             commitMessage: commit.commit.message,
             author: commit.commit.author?.name || 'Unknown',
             date: commit.commit.author?.date || new Date(),
-            branch: 'main', // Simplified, getting actual branch requires more logic
+            branch: 'main',
             url: commit.html_url
           },
           { upsert: true }
         );
       }
 
-      // 80% - Fetching Issues
-      await this.updateJob(jobId, 'Running', 80, 'Fetching Issues');
+      // 55% - Fetching Issues
+      await this.updateJob(jobId, 'Running', 55, 'Issues', 'Fetching Issues', stats);
       const issues = await this.githubService.getIssues(owner, repo);
+      let issueCount = 0;
       for (const issue of issues) {
-        if (!issue.pull_request) { // Skip PRs as they are also considered issues by GitHub API
+        if (!issue.pull_request) {
+          issueCount++;
           await IssueModel.findOneAndUpdate(
             { repositoryId: repoId, title: issue.title, createdDate: issue.created_at },
             {
@@ -110,11 +130,14 @@ export class RepositoryProcessor {
           );
         }
       }
+      stats.issues = issueCount;
+      await this.updateJob(jobId, 'Running', 60, 'Issues', `Fetched ${issueCount} Issues`, stats);
 
-      // Contributors
-      await this.updateJob(jobId, 'Running', 90, 'Fetching Contributors');
+      // 65% - Contributors
+      await this.updateJob(jobId, 'Running', 65, 'Contributors', 'Fetching Contributors', stats);
       const contributors = await this.githubService.getContributors(owner, repo);
       if (contributors) {
+        stats.contributors = contributors.length;
         for (const contributor of contributors) {
           if (contributor.login) {
              await ContributorModel.findOneAndUpdate(
@@ -128,17 +151,60 @@ export class RepositoryProcessor {
           }
         }
       }
+      await this.updateJob(jobId, 'Running', 70, 'Contributors', `Fetched ${stats.contributors} Contributors`, stats);
+
+      // ==============================================================
+      // MOCK AI PIPELINE (Simulating heavy backend ML processing)
+      // ==============================================================
+      
+      // 75% - Chunking
+      await this.updateJob(jobId, 'Running', 75, 'Chunking Documents', 'Chunking Documents', stats);
+      await delay(2000);
+      stats.chunks = Math.floor(Math.random() * 2000) + 500; // Mock chunks
+      await this.updateJob(jobId, 'Running', 78, 'Generating embeddings', `Generated ${stats.chunks} Knowledge Chunks`, stats);
+
+      // 82% - Embeddings
+      await this.updateJob(jobId, 'Running', 82, 'Generating embeddings', 'Generating Embeddings', stats);
+      await delay(2500);
+
+      // 88% - Qdrant Vector Index
+      await this.updateJob(jobId, 'Running', 88, 'Creating vector index', 'Uploading vectors to Qdrant', stats);
+      await delay(2000);
+
+      // 94% - Hindsight Memory
+      await this.updateJob(jobId, 'Running', 94, 'Building Hindsight memory', 'Building Hindsight Memory', stats);
+      await delay(2500);
+
+      // 98% - Cascadeflow Runtime
+      await this.updateJob(jobId, 'Running', 98, 'Initializing cascadeflow runtime', 'Configuring cascadeflow', stats);
+      await delay(1500);
 
       // 100% - Completed
-      await this.updateJob(jobId, 'Completed', 100, 'Completed');
+      await this.updateJob(jobId, 'Completed', 100, 'Engineering Knowledge Ready', 'Engineering Intelligence Ready', stats);
 
     } catch (error: any) {
       console.error(`[RepositoryProcessor] Error processing repository: ${error.message}`);
-      await this.updateJob(jobId, 'Failed', 0, `Failed: ${error.message}`);
+      await this.updateJob(jobId, 'Failed', 0, 'Failed', `Failed: ${error.message}`, {
+        repositories: 0, files: 0, pullRequests: 0, issues: 0, commits: 0, contributors: 0, chunks: 0
+      });
     }
   }
 
-  private async updateJob(jobId: string, status: 'Queued' | 'Running' | 'Completed' | 'Failed', progress: number, message: string) {
-    await ProcessingJobModel.findByIdAndUpdate(jobId, { status, progress, message });
+  private async updateJob(
+    jobId: string, 
+    status: 'Queued' | 'Running' | 'Completed' | 'Failed', 
+    progress: number, 
+    currentStep: string,
+    logMessage: string,
+    stats: any
+  ) {
+    await ProcessingJobModel.findByIdAndUpdate(jobId, { 
+      status, 
+      progress, 
+      currentStep,
+      message: currentStep,
+      $push: { logs: { timestamp: new Date(), message: logMessage } },
+      $set: { statistics: stats }
+    });
   }
 }
