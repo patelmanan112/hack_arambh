@@ -336,9 +336,12 @@ export default function AIProcessingPage() {
           if (wsRes.ok) {
             const wsData = await wsRes.json()
             if (wsData.success && wsData.data?.workspaces?.length > 0) {
-              workspaceId = wsData.data.workspaces[0].id
-              // Store it for future use
-              localStorage.setItem("recalliq_workspace_id", workspaceId)
+              const fetchedId = wsData.data.workspaces[0].id
+              if (fetchedId) {
+                workspaceId = fetchedId
+                // Store it for future use
+                localStorage.setItem("recalliq_workspace_id", fetchedId)
+              }
             }
           }
         }
