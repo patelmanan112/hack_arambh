@@ -14,6 +14,7 @@ import { RepositorySkeleton } from "@/components/RepositorySkeleton"
 import { Button } from "@/components/ui/Button"
 import { cn } from "@/lib/utils"
 import { API_BASE_URL, getToken, setToken } from "@/lib/api"
+import { useWorkspace } from "@/context/WorkspaceContext"
 
 import type { GitHubRepo, FilterOption, SortOption, GetReposResponse } from "@/types/github"
 
@@ -83,6 +84,13 @@ function SelectRepositoriesContent() {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [user, setUser] = useState<{ login?: string; avatar_url?: string } | null>(null)
   const [tokenReady, setTokenReady] = useState(false)
+  const { 
+    workspaceId, 
+    setWorkspaceId, 
+    setSelectedRepositories, 
+    setProcessingJobId, 
+    isHydrated 
+  } = useWorkspace()
 
   // Capture JWT from URL query param (redirected here after OAuth callback)
   useEffect(() => {
@@ -187,32 +195,38 @@ function SelectRepositoriesContent() {
     try {
       const token = getToken()
       
-      // Get workspaceId from local storage
-      let workspaceId = localStorage.getItem("recalliq_workspace_id")
-      
-      if (!workspaceId) {
-        // Fallback: fetch user's workspaces from the API
+      let activeWorkspaceId = workspaceId;
+
+      // Auto-create workspace if one doesn't exist (e.g. user refreshed and lost state before we added persistence, or bypassed step)
+      if (!activeWorkspaceId) {
+        console.log("[SelectRepositories] No workspace found, auto-creating a default workspace...");
         const wsRes = await fetch(`${API_BASE_URL}/workspaces`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
+          body: JSON.stringify({ name: "My Workspace" }),
         })
-        if (wsRes.ok) {
-          const wsData = await wsRes.json()
-          if (wsData.success && wsData.data?.workspaces?.length > 0) {
-            workspaceId = wsData.data.workspaces[0].id
-            if (workspaceId) localStorage.setItem("recalliq_workspace_id", workspaceId)
-          }
+        
+        const wsData = await wsRes.json()
+        if (!wsRes.ok || !wsData.success) {
+          throw new Error("Failed to auto-create workspace")
         }
+        activeWorkspaceId = wsData.data.workspace.id
+        setWorkspaceId(activeWorkspaceId)
       }
 
-      if (!workspaceId) {
-        alert("Workspace not found. Please complete workspace setup.")
-        setIsSubmitting(false)
-        return
+      if (!activeWorkspaceId) {
+        throw new Error("Could not initialize workspace")
       }
+
+      // Save selected repos to context
+      const reposArray = Array.from(selectedRepos)
+      setSelectedRepositories(reposArray)
 
       // Start the job with the first selected repo
-      // For now, we only process one repo. In the future this could be an array or loop.
-      const mainRepo = Array.from(selectedRepos)[0]
+      const mainRepo = reposArray[0]
 
       const res = await fetch(`${API_BASE_URL}/repository/process`, {
         method: "POST",
@@ -220,13 +234,16 @@ function SelectRepositoriesContent() {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ workspaceId, repositoryId: mainRepo }),
+        body: JSON.stringify({ workspaceId: activeWorkspaceId, repositoryId: mainRepo }),
       })
       
       const data = await res.json()
       if (!data.success) throw new Error(data.error?.message || "Failed to start processing job")
       
-      // Navigate to the processing page with the jobId securely passed in URL
+      // Save job ID to context
+      setProcessingJobId(data.data.jobId)
+
+      // Navigate to the processing page securely
       router.push(`/onboarding/ai-processing?jobId=${data.data.jobId}`)
     } catch (err) {
       console.error(err)
@@ -287,7 +304,7 @@ function SelectRepositoriesContent() {
           />
         </motion.div>
 
-        {isLoading ? (
+        {!isHydrated || isLoading ? (
           <RepositorySkeleton />
         ) : error ? (
           <div className="rounded-xl border border-red-500/20 bg-red-500/5 p-8 text-center max-w-lg mx-auto mt-20">

@@ -20,6 +20,8 @@ import { ArrowRight, Loader2, CheckCircle2, ArrowLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { API_BASE_URL, getToken } from "@/lib/api"
 
+import { useWorkspace } from "@/context/WorkspaceContext"
+
 const workspaceSchema = z.object({
   workspaceName: z.string().min(2, "Workspace name must be at least 2 characters"),
   orgName: z.string().optional(),
@@ -73,6 +75,7 @@ function FieldWrapper({ label, optional, error, children }: FieldWrapperProps) {
 
 export function WorkspaceForm() {
   const router = useRouter()
+  const { setWorkspaceId } = useWorkspace()
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [isSuccess, setIsSuccess] = useState(false)
 
@@ -110,8 +113,8 @@ export function WorkspaceForm() {
         throw new Error(result.error?.message ?? "Failed to create workspace")
       }
 
-      // Store workspace ID for the AI processing step
-      localStorage.setItem("recalliq_workspace_id", result.data.workspace.id)
+      // Store workspace ID in context (which automatically persists to localStorage)
+      setWorkspaceId(result.data.workspace.id)
 
       setIsSuccess(true)
       await new Promise((resolve) => setTimeout(resolve, 1200))
