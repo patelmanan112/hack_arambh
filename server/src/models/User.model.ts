@@ -9,6 +9,10 @@ export interface IUser extends Document {
   avatar: string;
   profileUrl: string;
   provider: OAuthProviderName;
+  githubUsername?: string;
+  githubAvatar?: string;
+  githubAccessToken?: string;
+  refreshToken?: string;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -21,6 +25,10 @@ const UserSchema: Schema = new Schema({
   avatar: { type: String, required: true },
   profileUrl: { type: String, required: true },
   provider: { type: String, required: true },
+  githubUsername: { type: String },
+  githubAvatar: { type: String },
+  githubAccessToken: { type: String },
+  refreshToken: { type: String },
 }, { timestamps: true });
 
 export default mongoose.model<IUser>('User', UserSchema);

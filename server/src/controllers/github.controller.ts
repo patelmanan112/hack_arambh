@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import type { AuthUser } from "../types/user.js";
+import UserModel from "../models/User.model.js";
 
 interface GitHubRepo {
   id: number;
@@ -27,15 +28,32 @@ interface GitHubRepo {
 
 export class GitHubController {
   getRepos = async (req: Request, res: Response): Promise<void> => {
-    const token = req.session.githubAccessToken;
+    const user = req.user as AuthUser | undefined;
+    let token = req.session.githubAccessToken;
+
+    if (!token && user) {
+      try {
+        const dbUser = await UserModel.findOne({ githubId: user.id });
+        if (dbUser?.githubAccessToken) {
+          token = dbUser.githubAccessToken;
+          req.session.githubAccessToken = token;
+          console.log("[github] Restored GitHub access token from MongoDB for user:", user.username);
+        }
+      } catch (err) {
+        console.error("[github] Failed to restore token from DB:", err);
+      }
+    }
 
     if (!token) {
+      console.warn("[github] getRepos failed: githubAccessToken is missing");
       res.status(401).json({
         success: false,
-        error: { message: "GitHub access token not found. Please re-authenticate.", code: "NO_GITHUB_TOKEN" },
+        error: { message: "GitHub access token not found. Please reconnect GitHub.", code: "NO_GITHUB_TOKEN" },
       });
       return;
     }
+
+    console.log(`[github] Fetching repositories using token: ${token.substring(0, 8)}...`);
 
     try {
       // Paginate to get all repos (up to 300)

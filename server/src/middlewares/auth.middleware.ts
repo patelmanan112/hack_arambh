@@ -9,6 +9,7 @@ export function requireAuth(
   const user = req.user as AuthUser | undefined;
 
   if (!user) {
+    console.warn("[auth] requireAuth failed: req.user is undefined. Received cookies:", req.headers.cookie);
     res.status(401).json({
       success: false,
       error: {

@@ -1,6 +1,7 @@
 import type { Request, Response } from 'express';
 import mongoose from 'mongoose';
 import ProcessingJobModel from '../models/ProcessingJob.model.js';
+import UserModel from '../models/User.model.js';
 import { RepositoryProcessor } from '../processing/repository.processor.js';
 import type { AuthUser } from '../types/user.js';
 
@@ -17,9 +18,23 @@ export class RepositoryController {
       return;
     }
 
-    const token = req.session.githubAccessToken;
+    let token = req.session.githubAccessToken;
     if (!token) {
-      res.status(401).json({ success: false, error: { message: 'GitHub access token not found.', code: 'NO_GITHUB_TOKEN' } });
+      try {
+        const dbUser = await UserModel.findOne({ githubId: user.id });
+        if (dbUser?.githubAccessToken) {
+          token = dbUser.githubAccessToken;
+          req.session.githubAccessToken = token;
+          console.log("[repository] Restored GitHub access token from MongoDB for user:", user.username);
+        }
+      } catch (err) {
+        console.error("[repository] Failed to restore token from DB:", err);
+      }
+    }
+
+    if (!token) {
+      console.warn("[repository] processRepository failed: githubAccessToken is missing");
+      res.status(401).json({ success: false, error: { message: 'GitHub access token not found. Please reconnect GitHub.', code: 'NO_GITHUB_TOKEN' } });
       return;
     }
 
