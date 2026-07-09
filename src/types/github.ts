@@ -31,3 +31,11 @@ export interface RepoFilters {
   sort: SortOption;
   language: string;
 }
+
+export interface GetReposResponse {
+  success: boolean;
+  data: {
+    repositories: GitHubRepo[];
+    total: number;
+  };
+}
