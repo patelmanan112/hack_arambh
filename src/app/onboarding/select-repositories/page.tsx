@@ -186,16 +186,48 @@ function SelectRepositoriesContent() {
     setIsSubmitting(true)
     try {
       const token = getToken()
-      const res = await fetch(`${API_BASE_URL}/github/select-repositories`, {
+      
+      // Get workspaceId from local storage
+      let workspaceId = localStorage.getItem("recalliq_workspace_id")
+      
+      if (!workspaceId) {
+        // Fallback: fetch user's workspaces from the API
+        const wsRes = await fetch(`${API_BASE_URL}/workspaces`, {
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+        if (wsRes.ok) {
+          const wsData = await wsRes.json()
+          if (wsData.success && wsData.data?.workspaces?.length > 0) {
+            workspaceId = wsData.data.workspaces[0].id
+            if (workspaceId) localStorage.setItem("recalliq_workspace_id", workspaceId)
+          }
+        }
+      }
+
+      if (!workspaceId) {
+        alert("Workspace not found. Please complete workspace setup.")
+        setIsSubmitting(false)
+        return
+      }
+
+      // Start the job with the first selected repo
+      // For now, we only process one repo. In the future this could be an array or loop.
+      const mainRepo = Array.from(selectedRepos)[0]
+
+      const res = await fetch(`${API_BASE_URL}/repository/process`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
-        body: JSON.stringify({ repositories: Array.from(selectedRepos) }),
+        body: JSON.stringify({ workspaceId, repositoryId: mainRepo }),
       })
-      if (!res.ok) throw new Error("Failed to save selection")
-      router.push("/onboarding/ai-processing")
+      
+      const data = await res.json()
+      if (!data.success) throw new Error(data.error?.message || "Failed to start processing job")
+      
+      // Navigate to the processing page with the jobId securely passed in URL
+      router.push(`/onboarding/ai-processing?jobId=${data.data.jobId}`)
     } catch (err) {
       console.error(err)
       alert("Something went wrong. Please try again.")

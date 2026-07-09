@@ -1,7 +1,8 @@
 "use client"
 import React, { useState, useEffect, useRef } from "react"
 import { motion, AnimatePresence, useSpring, useTransform } from "framer-motion"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
+import { Suspense } from "react"
 import { 
   Check, AlertCircle, Database, GitBranch, GitPullRequest, 
   MessageSquare, Users, FileText, Zap, ChevronRight, BrainCircuit,
@@ -167,8 +168,9 @@ function AIBrain({ progress, isDone }: { progress: number; isDone: boolean }) {
 // ──────────────────────────────────────────────
 // Main Page
 // ──────────────────────────────────────────────
-export default function AIProcessingPage() {
+function AIProcessingContent() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   
   const [jobId, setJobId] = useState<string | null>(null)
   const [jobData, setJobData] = useState<JobData>({
@@ -182,7 +184,6 @@ export default function AIProcessingPage() {
   const [startError, setStartError] = useState<string | null>(null)
   const [isDone, setIsDone] = useState(false)
   
-  const startedRef = useRef(false)
   const logsEndRef = useRef<HTMLDivElement>(null)
 
   // Auto-scroll logs
@@ -192,71 +193,16 @@ export default function AIProcessingPage() {
     }
   }, [jobData.logs])
 
-  // Fire off the job
+  // Get job ID from URL
   useEffect(() => {
-    if (startedRef.current) return
-    startedRef.current = true
-
-    const init = async () => {
-      try {
-        const token = getToken()
-        const res = await fetch(`${API_BASE_URL}/github/selected-repositories`, {
-          headers: token ? { Authorization: `Bearer ${token}` } : {},
-        })
-        if (!res.ok) throw new Error("Could not load selected repositories")
-        const selData = await res.json()
-        const repos: string[] = selData.data?.selected ?? []
-
-        if (repos.length === 0) {
-          router.push("/onboarding/select-repositories")
-          return
-        }
-
-        let workspaceId = localStorage.getItem("recalliq_workspace_id")
-        if (!workspaceId) {
-          const wsRes = await fetch(`${API_BASE_URL}/workspaces`, {
-            headers: token ? { Authorization: `Bearer ${token}` } : {},
-          })
-          if (wsRes.ok) {
-            const wsData = await wsRes.json()
-            if (wsData.success && wsData.data?.workspaces?.length > 0) {
-              workspaceId = wsData.data.workspaces[0].id
-              if (workspaceId) localStorage.setItem("recalliq_workspace_id", workspaceId)
-            }
-          }
-        }
-
-        if (!workspaceId) throw new Error("No workspace found. Please complete the workspace setup step first.")
-
-        // Just fire the first one for the overall dashboard if there are multiple.
-        // In a real scenario, the backend might handle multiple repos in one job,
-        // or we aggregate them. Here we track the first repo's job to drive the UI.
-        const mainRepo = repos[0]
-        
-        const procRes = await fetch(`${API_BASE_URL}/repository/process`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            ...(token ? { Authorization: `Bearer ${token}` } : {}),
-          },
-          body: JSON.stringify({ workspaceId, repositoryId: mainRepo }),
-        })
-        
-        const data = await procRes.json()
-        if (data.success) {
-          setJobId(data.data.jobId)
-        } else {
-          throw new Error(data.error?.message || "Failed to start job")
-        }
-      } catch (err: any) {
-        setStartError(err.message || "Unknown error")
-      } finally {
-        setIsStarting(false)
-      }
+    const urlJobId = searchParams?.get("jobId")
+    if (!urlJobId) {
+      router.replace("/onboarding/select-repositories")
+      return
     }
-
-    init()
-  }, [router])
+    setJobId(urlJobId)
+    setIsStarting(false)
+  }, [searchParams, router])
 
   // Poll job status
   useEffect(() => {
@@ -596,6 +542,14 @@ export default function AIProcessingPage() {
         }
       `}} />
     </div>
+  )
+}
+
+export default function AIProcessingPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#09090B] flex items-center justify-center text-white/50 animate-pulse">Loading AI Runtime...</div>}>
+      <AIProcessingContent />
+    </Suspense>
   )
 }
 
