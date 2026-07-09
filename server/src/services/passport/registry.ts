@@ -1,5 +1,4 @@
 import passport from "passport";
-import type { AuthUser } from "../../types/user.js";
 import type { OAuthProviderDefinition } from "./types.js";
 
 class OAuthProviderRegistry {
@@ -24,15 +23,5 @@ class OAuthProviderRegistry {
 }
 
 export const oauthProviderRegistry = new OAuthProviderRegistry();
-
-export function configurePassportSerialization(): void {
-  passport.serializeUser((user, done) => {
-    done(null, user);
-  });
-
-  passport.deserializeUser((user, done) => {
-    done(null, user as AuthUser);
-  });
-}
 
 export { passport };

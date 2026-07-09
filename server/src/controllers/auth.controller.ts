@@ -1,6 +1,7 @@
 import type { Request, Response, NextFunction } from "express";
 import passport from "passport";
 import type { EnvConfig } from "../config/env.js";
+import { signToken } from "../config/jwt.js";
 import { getGitHubStrategyName } from "../services/passport/providers/github.provider.js";
 import type { AuthUser } from "../types/user.js";
 
@@ -9,7 +10,8 @@ export class AuthController {
 
   githubLogin = (req: Request, res: Response, next: NextFunction): void => {
     passport.authenticate(getGitHubStrategyName(), {
-      scope: ["user:email"],
+      scope: ["user:email", "repo"],
+      session: false,
     })(req, res, (err: unknown) => {
       if (err) {
         console.error("[auth] GitHub login error:", err);
@@ -33,21 +35,33 @@ export class AuthController {
   githubCallback = (req: Request, res: Response, next: NextFunction): void => {
     passport.authenticate(getGitHubStrategyName(), {
       failureRedirect: `${this.config.clientUrl}/login?error=auth_failed`,
-      session: true,
-      keepSessionInfo: true,
+      session: false,
     })(req, res, (err: unknown) => {
       if (err) {
+        console.error("[auth] GitHub callback error:", err);
         next(err);
         return;
       }
 
-      req.session.save((saveErr) => {
-        if (saveErr) {
-          next(saveErr);
-          return;
-        }
-        res.redirect(`${this.config.clientUrl}/onboarding/select-repositories?auth=success`);
+      const user = req.user as (AuthUser & { _id?: string }) | undefined;
+
+      if (!user) {
+        res.redirect(`${this.config.clientUrl}/login?error=auth_failed`);
+        return;
+      }
+
+      // Sign a JWT with user info
+      const token = signToken({
+        userId: user._id ?? user.id,
+        githubId: user.id,
+        username: user.username,
+        provider: user.provider,
       });
+
+      // Redirect to client with the JWT token in the URL
+      res.redirect(
+        `${this.config.clientUrl}/onboarding/select-repositories?token=${token}`
+      );
     });
   };
 
@@ -55,31 +69,12 @@ export class AuthController {
     res.redirect(`${this.config.clientUrl}/login?error=auth_failed`);
   };
 
-  logout = (req: Request, res: Response, next: NextFunction): void => {
-    req.logout((err) => {
-      if (err) {
-        next(err);
-        return;
-      }
-
-      req.session.destroy((destroyErr) => {
-        if (destroyErr) {
-          next(destroyErr);
-          return;
-        }
-
-        res.clearCookie("recalliq.sid", {
-          httpOnly: true,
-          secure: this.config.isProduction,
-          sameSite: this.config.isProduction ? "none" : "lax",
-          path: "/",
-        });
-
-        res.json({
-          success: true,
-          data: { message: "Logged out successfully" },
-        });
-      });
+  logout = (_req: Request, res: Response): void => {
+    // With JWT, logout is client-side (delete the token).
+    // This endpoint exists for API completeness.
+    res.json({
+      success: true,
+      data: { message: "Logged out successfully" },
     });
   };
 

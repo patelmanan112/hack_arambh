@@ -1,6 +1,7 @@
 import { Router } from "express";
 import type { AuthController } from "../controllers/auth.controller.js";
 import { requireAuth } from "../middlewares/auth.middleware.js";
+import { optionalJwtAuth } from "../middlewares/optional-jwt.middleware.js";
 
 export function createAuthRoutes(controller: AuthController): Router {
   const router = Router();
@@ -10,7 +11,7 @@ export function createAuthRoutes(controller: AuthController): Router {
   router.get("/failure", controller.failure);
   router.post("/logout", controller.logout);
   router.get("/me", requireAuth, controller.getMe);
-  router.get("/status", controller.getStatus);
+  router.get("/status", optionalJwtAuth, controller.getStatus);
 
   return router;
 }

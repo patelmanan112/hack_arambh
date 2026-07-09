@@ -1,13 +1,11 @@
 import type { EnvConfig } from "../../config/env.js";
 import { createGitHubProvider } from "./providers/github.provider.js";
 import {
-  configurePassportSerialization,
   oauthProviderRegistry,
   passport,
 } from "./registry.js";
 
 export function initializePassport(config: EnvConfig): typeof passport {
-  configurePassportSerialization();
   oauthProviderRegistry.register(createGitHubProvider(config));
 
   // Future providers — uncomment and implement when ready:

@@ -2,7 +2,7 @@ export interface EnvConfig {
   nodeEnv: string;
   port: number;
   clientUrl: string;
-  sessionSecret: string;
+  jwtSecret: string;
   github: {
     clientId: string;
     clientSecret: string;
@@ -27,12 +27,6 @@ export function loadEnvConfig(): EnvConfig {
   const nodeEnv = process.env.NODE_ENV ?? "development";
   const isProduction = nodeEnv === "production";
 
-  if (!isProduction && !process.env.SESSION_SECRET) {
-    console.warn(
-      "[server] Using default SESSION_SECRET for development. Set SESSION_SECRET in server/.env for production."
-    );
-  }
-
   const clientUrl = requireEnv(
     "CLIENT_URL",
     isProduction ? undefined : "http://localhost:3000"
@@ -52,9 +46,9 @@ export function loadEnvConfig(): EnvConfig {
     nodeEnv,
     port,
     clientUrl,
-    sessionSecret: requireEnv(
-      "SESSION_SECRET",
-      isProduction ? undefined : "dev-session-secret-do-not-use-in-production"
+    jwtSecret: requireEnv(
+      "JWT_SECRET",
+      isProduction ? undefined : "dev-jwt-secret-do-not-use-in-production"
     ),
     github: {
       clientId: requireEnv("GITHUB_CLIENT_ID"),

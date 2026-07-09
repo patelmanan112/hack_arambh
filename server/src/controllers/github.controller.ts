@@ -1,6 +1,5 @@
 import type { Request, Response } from "express";
 import type { AuthUser } from "../types/user.js";
-import UserModel from "../models/User.model.js";
 
 interface GitHubRepo {
   id: number;
@@ -29,20 +28,7 @@ interface GitHubRepo {
 export class GitHubController {
   getRepos = async (req: Request, res: Response): Promise<void> => {
     const user = req.user as AuthUser | undefined;
-    let token = req.session.githubAccessToken;
-
-    if (!token && user) {
-      try {
-        const dbUser = await UserModel.findOne({ githubId: user.id });
-        if (dbUser?.githubAccessToken) {
-          token = dbUser.githubAccessToken;
-          req.session.githubAccessToken = token;
-          console.log("[github] Restored GitHub access token from MongoDB for user:", user.username);
-        }
-      } catch (err) {
-        console.error("[github] Failed to restore token from DB:", err);
-      }
-    }
+    const token = req.githubAccessToken;
 
     if (!token) {
       console.warn("[github] getRepos failed: githubAccessToken is missing");
@@ -53,7 +39,7 @@ export class GitHubController {
       return;
     }
 
-    console.log(`[github] Fetching repositories using token: ${token.substring(0, 8)}...`);
+    console.log(`[github] Fetching repositories for user: ${user?.username}`);
 
     try {
       // Paginate to get all repos (up to 300)
@@ -125,17 +111,13 @@ export class GitHubController {
       return;
     }
 
-    // Store in session for next steps (in production this would go to DB)
-    req.session.selectedRepositories = repositories;
-
     res.json({
       success: true,
       data: { selected: repositories, count: repositories.length },
     });
   };
 
-  getSelectedRepositories = (req: Request, res: Response): void => {
-    const selected = req.session.selectedRepositories ?? [];
-    res.json({ success: true, data: { selected } });
+  getSelectedRepositories = (_req: Request, res: Response): void => {
+    res.json({ success: true, data: { selected: [] } });
   };
 }

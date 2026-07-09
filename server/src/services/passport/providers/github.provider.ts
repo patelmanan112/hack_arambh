@@ -26,10 +26,8 @@ export function createGitHubProvider(config: EnvConfig): OAuthProviderDefinition
             clientSecret: config.github.clientSecret,
             callbackURL: config.github.callbackUrl,
             scope: ["user:email", "repo"],
-            passReqToCallback: true as const,
           },
           async (
-            req: Express.Request,
             accessToken: string,
             _refreshToken: string,
             profile: GitHubStrategyProfile,
@@ -40,7 +38,7 @@ export function createGitHubProvider(config: EnvConfig): OAuthProviderDefinition
               const user = toAuthUser("github", normalized);
               
               // Store user credentials and token inside MongoDB
-              await UserModel.findOneAndUpdate(
+              const dbUser = await UserModel.findOneAndUpdate(
                 { githubId: user.id },
                 {
                   githubId: user.id,
@@ -57,9 +55,13 @@ export function createGitHubProvider(config: EnvConfig): OAuthProviderDefinition
                 { upsert: true, new: true }
               );
 
-              // Store access token in session for GitHub API calls
-              (req as Express.Request & { session: { githubAccessToken?: string } }).session.githubAccessToken = accessToken;
-              done(null, user);
+              // Attach the MongoDB _id to the user object for JWT signing
+              const authUser = {
+                ...user,
+                _id: dbUser._id.toString(),
+              };
+
+              done(null, authUser);
             } catch (error) {
               done(error as Error);
             }

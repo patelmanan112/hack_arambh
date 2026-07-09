@@ -1,7 +1,7 @@
 import express from "express";
 import { loadEnvConfig } from "./config/env.js";
 import { createCorsMiddleware } from "./config/cors.js";
-import { createSessionMiddleware } from "./config/session.js";
+import { initJwt } from "./config/jwt.js";
 import { AuthController } from "./controllers/auth.controller.js";
 import { GitHubController } from "./controllers/github.controller.js";
 import {
@@ -17,12 +17,18 @@ import { RepositoryController } from "./controllers/repository.controller.js";
 import { WorkspaceController } from "./controllers/workspace.controller.js";
 import { WorkspaceManagementController } from "./controllers/workspace-management.controller.js";
 import { initializePassport } from "./services/passport/index.js";
-import "./types/session.js";
+import "./types/express.d.js";
 
 export function createApp() {
   const config = loadEnvConfig();
   const app = express();
+
+  // Initialize JWT signing/verification
+  initJwt(config);
+
+  // Initialize Passport (strategy registration only — no session serialization)
   const passport = initializePassport(config);
+
   const authController = new AuthController(config);
   const gitHubController = new GitHubController();
   const repositoryController = new RepositoryController();
@@ -34,9 +40,7 @@ export function createApp() {
   app.use(createCorsMiddleware(config));
   app.use(express.json());
   app.use(express.urlencoded({ extended: true }));
-  app.use(createSessionMiddleware(config));
   app.use(passport.initialize());
-  app.use(passport.session());
 
   app.get("/health", (_req, res) => {
     res.json({ success: true, data: { status: "ok" } });

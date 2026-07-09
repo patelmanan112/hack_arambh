@@ -1,11 +1,2 @@
-import type { AuthUser } from "./user.js";
-
-declare module "express-session" {
-  interface SessionData {
-    user?: AuthUser;
-    githubAccessToken?: string;
-    selectedRepositories?: string[];
-  }
-}
-
+// Session type augmentation removed — using JWT authentication instead.
 export {};

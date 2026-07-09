@@ -18,7 +18,7 @@ import {
 } from "@/components/ui/Select"
 import { ArrowRight, Loader2, CheckCircle2, ArrowLeft } from "lucide-react"
 import { cn } from "@/lib/utils"
-import { API_BASE_URL } from "@/lib/api"
+import { API_BASE_URL, getToken } from "@/lib/api"
 
 const workspaceSchema = z.object({
   workspaceName: z.string().min(2, "Workspace name must be at least 2 characters"),
@@ -94,10 +94,13 @@ export function WorkspaceForm() {
   const onSubmit = async (data: WorkspaceFormValues) => {
     setIsSubmitting(true)
     try {
+      const token = getToken()
       const res = await fetch(`${API_BASE_URL}/workspaces`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ name: data.workspaceName }),
       })
 

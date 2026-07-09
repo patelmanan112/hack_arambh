@@ -8,7 +8,7 @@ import React, {
   useMemo,
   useState,
 } from "react";
-import { authApi } from "@/lib/api";
+import { authApi, getToken, clearToken } from "@/lib/api";
 import type { AuthUser } from "@/types/auth";
 
 interface AuthContextValue {
@@ -30,6 +30,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [error, setError] = useState<string | null>(null);
 
   const refreshUser = useCallback(async () => {
+    // Only attempt to fetch user if we have a stored JWT token
+    if (!getToken()) {
+      setUser(null);
+      setIsLoading(false);
+      return;
+    }
+
     try {
       setError(null);
       const status = await authApi.getStatus();
@@ -37,7 +44,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       setUser(null);
       setError(
-        err instanceof Error ? err.message : "Failed to load authentication status"
+        err instanceof Error
+          ? err.message
+          : "Failed to load authentication status"
       );
     } finally {
       setIsLoading(false);
@@ -55,7 +64,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     try {
       setError(null);
-      await authApi.logout();
+      await authApi.logout(); // also calls clearToken() internally
+      clearToken();
       setUser(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to log out");

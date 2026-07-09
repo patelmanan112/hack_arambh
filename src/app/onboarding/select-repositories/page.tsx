@@ -1,8 +1,8 @@
 "use client"
-import React, { useState, useMemo, useEffect } from "react"
+import React, { useState, useMemo, useEffect, Suspense } from "react"
 import { motion } from "framer-motion"
 import { useQuery } from "@tanstack/react-query"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import { Check, AlertCircle, RefreshCcw } from "lucide-react"
 
 import { RepositoryCard } from "@/components/RepositoryCard"
@@ -13,7 +13,7 @@ import { RepositorySelectionFooter } from "@/components/RepositorySelectionFoote
 import { RepositorySkeleton } from "@/components/RepositorySkeleton"
 import { Button } from "@/components/ui/Button"
 import { cn } from "@/lib/utils"
-import { API_BASE_URL } from "@/lib/api"
+import { API_BASE_URL, getToken, setToken } from "@/lib/api"
 
 import type { GitHubRepo, FilterOption, SortOption, GetReposResponse } from "@/types/github"
 
@@ -69,9 +69,11 @@ function ConnectStepper() {
   )
 }
 
-export default function SelectRepositoriesPage() {
+// ── Inner component that uses useSearchParams (must be inside <Suspense>) ──────
+function SelectRepositoriesContent() {
   const router = useRouter()
-  
+  const searchParams = useSearchParams()
+
   // State
   const [search, setSearch] = useState("")
   const [filter, setFilter] = useState<FilterOption>("all")
@@ -80,13 +82,32 @@ export default function SelectRepositoriesPage() {
   const [selectedRepos, setSelectedRepos] = useState<Set<string>>(new Set())
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [user, setUser] = useState<{ login?: string; avatar_url?: string } | null>(null)
+  const [tokenReady, setTokenReady] = useState(false)
 
-  // Fetch Repos
+  // Capture JWT from URL query param (redirected here after OAuth callback)
+  useEffect(() => {
+    const tokenFromUrl = searchParams?.get("token")
+    if (tokenFromUrl) {
+      setToken(tokenFromUrl)
+      // Remove token from URL bar (security — avoid token leaking in browser history)
+      const url = new URL(window.location.href)
+      url.searchParams.delete("token")
+      window.history.replaceState({}, "", url.toString())
+    }
+    setTokenReady(true)
+  }, [searchParams])
+
+  // Fetch Repos — only after token is ready
   const { data, isLoading, error, refetch } = useQuery<GetReposResponse, Error>({
     queryKey: ["github-repos"],
     queryFn: async () => {
+      const token = getToken()
+      if (!token) throw new Error("Authentication required")
+
       const res = await fetch(`${API_BASE_URL}/github/repos`, {
-        credentials: "include"
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
       })
       if (!res.ok) {
         const errData = await res.json().catch(() => null)
@@ -94,13 +115,14 @@ export default function SelectRepositoriesPage() {
       }
       return res.json()
     },
-    staleTime: 1000 * 60 * 5, // 5 minutes
+    enabled: tokenReady,
+    staleTime: 1000 * 60 * 5,
     retry: 1,
   })
 
   const repos = data?.data?.repositories || []
 
-  // Extract user details from the first repo (quick hack since we don't have a separate /me endpoint here)
+  // Extract user details from the first repo
   useEffect(() => {
     if (repos.length > 0 && !user) {
       setUser({
@@ -110,68 +132,39 @@ export default function SelectRepositoriesPage() {
     }
   }, [repos, user])
 
-  // Extract available languages
   const availableLanguages = useMemo(() => {
     const langs = new Set<string>()
-    repos.forEach((r) => {
-      if (r.language) langs.add(r.language)
-    })
+    repos.forEach((r) => { if (r.language) langs.add(r.language) })
     return Array.from(langs).sort()
   }, [repos])
 
-  // Filter and Sort Logic
   const filteredRepos = useMemo(() => {
     let result = [...repos]
-
-    // Search
     if (search) {
       const q = search.toLowerCase()
       result = result.filter(
-        (r) =>
-          r.name.toLowerCase().includes(q) ||
-          (r.description && r.description.toLowerCase().includes(q))
+        (r) => r.name.toLowerCase().includes(q) || (r.description && r.description.toLowerCase().includes(q))
       )
     }
-
-    // Type Filter
     if (filter === "public") result = result.filter((r) => !r.private)
     if (filter === "private") result = result.filter((r) => r.private)
     if (filter === "forked") result = result.filter((r) => r.fork)
-
-    // Language Filter
-    if (language !== "all") {
-      result = result.filter((r) => r.language === language)
-    }
-
-    // Sort
+    if (language !== "all") result = result.filter((r) => r.language === language)
     result.sort((a, b) => {
-      if (sort === "updated") {
-        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
-      }
-      if (sort === "stars") {
-        return b.stargazers_count - a.stargazers_count
-      }
-      if (sort === "size") {
-        return b.size - a.size
-      }
-      if (sort === "name") {
-        return a.name.localeCompare(b.name)
-      }
+      if (sort === "updated") return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime()
+      if (sort === "stars") return b.stargazers_count - a.stargazers_count
+      if (sort === "size") return b.size - a.size
+      if (sort === "name") return a.name.localeCompare(b.name)
       return 0
     })
-
     return result
   }, [repos, search, filter, sort, language])
 
-  // Actions
   const handleToggleRepo = (repoFullName: string) => {
     setSelectedRepos((prev) => {
       const next = new Set(prev)
-      if (next.has(repoFullName)) {
-        next.delete(repoFullName)
-      } else {
-        next.add(repoFullName)
-      }
+      if (next.has(repoFullName)) next.delete(repoFullName)
+      else next.add(repoFullName)
       return next
     })
   }
@@ -180,36 +173,28 @@ export default function SelectRepositoriesPage() {
     setSelectedRepos((prev) => {
       const next = new Set(prev)
       const allVisibleSelected = visibleRepos.every((r) => next.has(r.full_name))
-      
-      if (allVisibleSelected) {
-        // Deselect all visible
-        visibleRepos.forEach((r) => next.delete(r.full_name))
-      } else {
-        // Select all visible
-        visibleRepos.forEach((r) => next.add(r.full_name))
-      }
+      if (allVisibleSelected) visibleRepos.forEach((r) => next.delete(r.full_name))
+      else visibleRepos.forEach((r) => next.add(r.full_name))
       return next
     })
   }
 
-  const handleClearSelection = () => {
-    setSelectedRepos(new Set())
-  }
+  const handleClearSelection = () => setSelectedRepos(new Set())
 
   const handleContinue = async () => {
     if (selectedRepos.size === 0) return
     setIsSubmitting(true)
-
     try {
+      const token = getToken()
       const res = await fetch(`${API_BASE_URL}/github/select-repositories`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ repositories: Array.from(selectedRepos) }),
       })
-
       if (!res.ok) throw new Error("Failed to save selection")
-
-      // Navigate to next step
       router.push("/onboarding/ai-processing")
     } catch (err) {
       console.error(err)
@@ -218,32 +203,14 @@ export default function SelectRepositoriesPage() {
     }
   }
 
-  // Calculate selected total size
   const totalSelectedSizeKb = useMemo(() => {
     let size = 0
-    repos.forEach((r) => {
-      if (selectedRepos.has(r.full_name)) {
-        size += r.size
-      }
-    })
+    repos.forEach((r) => { if (selectedRepos.has(r.full_name)) size += r.size })
     return size
   }, [repos, selectedRepos])
 
   return (
-    <div className="min-h-screen bg-[#09090B] flex flex-col font-sans text-foreground">
-      {/* Ambient blobs */}
-      <div className="pointer-events-none fixed inset-0 overflow-hidden">
-        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px]" />
-        <div className="absolute top-40 -right-40 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px]" />
-      </div>
-
-      {/* Header / Stepper */}
-      <header className="relative z-50 w-full border-b border-white/5 bg-[#09090B]/80 backdrop-blur-xl px-6 py-4 sticky top-0">
-        <div className="max-w-5xl mx-auto">
-          <ConnectStepper />
-        </div>
-      </header>
-
+    <>
       <main className="relative z-10 flex-1 w-full max-w-5xl mx-auto p-6 sm:p-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -257,14 +224,9 @@ export default function SelectRepositoriesPage() {
                 Choose which repositories RecallIQ should index into your AI knowledge base.
               </p>
             </div>
-            
             {user && (
               <div className="flex items-center gap-3 bg-white/[0.03] border border-white/[0.08] rounded-full pl-2 pr-4 py-1.5 backdrop-blur-md">
-                <img
-                  src={user.avatar_url}
-                  alt={user.login}
-                  className="w-7 h-7 rounded-full border border-white/20"
-                />
+                <img src={user.avatar_url} alt={user.login} className="w-7 h-7 rounded-full border border-white/20" />
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="text-sm font-medium text-white">{user.login}</span>
@@ -323,6 +285,31 @@ export default function SelectRepositoriesPage() {
           isSubmitting={isSubmitting}
         />
       )}
+    </>
+  )
+}
+
+// ── Page wrapper with Suspense boundary (required for useSearchParams) ─────────
+export default function SelectRepositoriesPage() {
+  return (
+    <div className="min-h-screen bg-[#09090B] flex flex-col font-sans text-foreground">
+      {/* Ambient blobs */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-40 -left-40 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px]" />
+        <div className="absolute top-40 -right-40 w-[500px] h-[500px] bg-blue-600/10 rounded-full blur-[120px]" />
+      </div>
+
+      {/* Header / Stepper */}
+      <header className="relative z-50 w-full border-b border-white/5 bg-[#09090B]/80 backdrop-blur-xl px-6 py-4 sticky top-0">
+        <div className="max-w-5xl mx-auto">
+          <ConnectStepper />
+        </div>
+      </header>
+
+      {/* Wrap in Suspense — required by Next.js for useSearchParams() */}
+      <Suspense fallback={<RepositorySkeleton />}>
+        <SelectRepositoriesContent />
+      </Suspense>
     </div>
   )
 }
