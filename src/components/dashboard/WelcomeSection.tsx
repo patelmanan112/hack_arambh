@@ -1,7 +1,7 @@
 "use client"
 
 import { Button } from "@/components/ui/Button"
-import { MessageSquare, UploadCloud, Github, Slack } from "lucide-react"
+import { MessageSquare, UploadCloud, GitBranch, Slack } from "lucide-react"
 
 export function WelcomeSection() {
   return (
@@ -31,7 +31,7 @@ export function WelcomeSection() {
           Upload Meeting
         </Button>
         <Button variant="outline" className="border-white/10 bg-white/5 hover:bg-white/10 text-white backdrop-blur-md">
-          <Github className="w-4 h-4 mr-2" />
+          <GitBranch className="w-4 h-4 mr-2" />
           Sync GitHub
         </Button>
       </div>
