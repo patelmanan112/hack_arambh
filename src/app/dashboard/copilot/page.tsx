@@ -117,6 +117,7 @@ export default function CopilotPage() {
       const decoder = new TextDecoder()
       let buffer = ""
       let sources: Message["sources"] | undefined
+      let finalResponse = ""
 
       while (true) {
         const { value, done } = await reader.read()
@@ -136,6 +137,13 @@ export default function CopilotPage() {
             ))
           }
 
+          if (event.fullResponse) {
+            finalResponse = event.fullResponse
+            setMessages(prev => prev.map(msg =>
+              msg.id === aiMessageId ? { ...msg, text: event.fullResponse } : msg
+            ))
+          }
+
           if (event.conversationId) {
             setConversationId(event.conversationId)
           }
@@ -147,7 +155,9 @@ export default function CopilotPage() {
       }
 
       setMessages(prev => prev.map(msg =>
-        msg.id === aiMessageId ? { ...msg, confidence: 90, sources } : msg
+        msg.id === aiMessageId
+          ? { ...msg, text: msg.text || finalResponse, confidence: 90, sources }
+          : msg
       ))
     } catch (error: any) {
       setMessages(prev => prev.map(msg =>
