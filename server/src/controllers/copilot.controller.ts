@@ -13,106 +13,153 @@ export const askCopilot = async (req: Request, res: Response) => {
       return;
     }
 
+    // Set SSE headers before anything else
     res.setHeader('Content-Type', 'text/event-stream');
     res.setHeader('Cache-Control', 'no-cache');
     res.setHeader('Connection', 'keep-alive');
+    res.flushHeaders();
 
-    // 1. Store user message in Hindsight
-    let convo = await Conversation.findOne({ id: conversationId });
+    // ── 1. Hindsight: Load or create conversation ──
+    let convo = conversationId
+      ? await Conversation.findOne({ _id: conversationId, workspaceId })
+      : null;
+
     if (!convo) {
       convo = new Conversation({
-        id: conversationId || uuidv4(),
         workspaceId,
-        title: message.substring(0, 40),
-        messages: []
+        title: message.substring(0, 50),
+        messages: [],
       });
     }
 
+    // Save user message
     const userMessageId = uuidv4();
     convo.messages.push({
       id: userMessageId,
       sender: 'user',
       text: message,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
     });
     await convo.save();
 
-    // 2. Convert question to embedding
+    // ── 2. Embed user question ──
     const questionEmbedding = await generateEmbedding(message);
 
-    // 3. Search Qdrant for top 5 chunks
+    // ── 3. Search Qdrant for top 5 relevant chunks ──
     const searchResults = await searchChunks(workspaceId, questionEmbedding, 5);
 
-    // 4. Retrieve Hindsight Memories (previous conversation context)
-    const recentMessages = convo.messages.slice(-5).map((m: any) => `${m.sender.toUpperCase()}: ${m.text}`).join('\n');
+    // ── 4. Retrieve Hindsight context (last 6 messages) ──
+    const hindsightMessages = convo.messages
+      .slice(-6)
+      .map((m: any) => `${m.sender === 'user' ? 'ENGINEER' : 'COPILOT'}: ${m.text}`)
+      .join('\n');
 
-    // 5. Build Prompt
-    let contextText = "No direct engineering context found.";
-    const sources: any[] = [];
-    
-    if (searchResults && searchResults.length > 0) {
-      contextText = searchResults.map((r: any, index: number) => {
-        const payload = r.payload as any;
-        const sourceName = payload?.source || `Document ${index + 1}`;
-        const sourceType = payload?.type || "Repository";
-        sources.push({ name: sourceName, type: sourceType });
-        return `[Source: ${sourceName} (${sourceType})]\n${payload?.text || ''}`;
-      }).join('\n\n');
+    // ── 5. Build sources and context ──
+    let contextText = '';
+    const sources: { name: string; type: string; url?: string }[] = [];
+
+    if (searchResults.length > 0) {
+      contextText = searchResults
+        .map((r: any, i: number) => {
+          const p = r.payload as any;
+          const sourceName = p?.source || `Document ${i + 1}`;
+          const sourceType = p?.sourceType || 'Repository';
+          sources.push({ name: sourceName, type: sourceType, url: p?.url });
+          return `[Source ${i + 1}: ${sourceName} (${sourceType})]\n${p?.text || ''}`;
+        })
+        .join('\n\n---\n\n');
+    } else {
+      contextText = 'No relevant context found in the knowledge base for this question.';
     }
 
-    const prompt = `
-You are the RecallIQ Engineering Copilot, an AI designed to help engineers understand their codebase, PRs, Issues, and team communication.
-Answer the user's question ONLY using the provided retrieved context below.
+    // ── 6. Build cascadeflow prompt ──
+    const prompt = `You are the RecallIQ Engineering Copilot — an expert AI assistant that helps engineers understand their codebase, architecture decisions, pull requests, issues, commits, and team knowledge.
 
-Rules:
-1. If the answer is unavailable in the context, respond EXACTLY with: "I couldn't find enough information in your connected engineering knowledge."
-2. Never hallucinate or invent information outside the context.
-3. Be concise and technical.
-4. Format using Markdown.
+STRICT RULES:
+1. Answer ONLY using the retrieved context provided below.
+2. If the answer cannot be found in the context, respond EXACTLY: "I couldn't find enough information in your connected engineering knowledge."
+3. NEVER hallucinate, guess, or use knowledge outside the provided context.
+4. Format answers in clean Markdown with code blocks where relevant.
+5. Be precise and technical. Reference specific source names.
 
-PREVIOUS CONVERSATION (Hindsight):
-${recentMessages}
+━━━━━━━━━━━━━━━━━━━━━━━━
+HINDSIGHT (Conversation Memory):
+━━━━━━━━━━━━━━━━━━━━━━━━
+${hindsightMessages || 'No previous conversation.'}
 
-RETRIEVED ENGINEERING CONTEXT:
+━━━━━━━━━━━━━━━━━━━━━━━━
+RETRIEVED ENGINEERING CONTEXT (${searchResults.length} chunks):
+━━━━━━━━━━━━━━━━━━━━━━━━
 ${contextText}
 
-USER QUESTION:
-${message}
-`;
+━━━━━━━━━━━━━━━━━━━━━━━━
+ENGINEER'S QUESTION:
+━━━━━━━━━━━━━━━━━━━━━━━━
+${message}`;
 
-    // 6. Send through cascadeflow and stream response
-    let fullResponse = "";
+    // ── 7. Stream via cascadeflow ──
+    let fullResponse = '';
     const aiMessageId = uuidv4();
 
-    await streamCascadeFlow(prompt, (chunk: string) => {
+    const { model, latency } = await streamCascadeFlow(prompt, (chunk: string) => {
       fullResponse += chunk;
-      // SSE Format
       res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
     });
 
-    // 7. Store Conversation in Hindsight
+    // ── 8. Store AI response in Hindsight ──
     convo.messages.push({
       id: aiMessageId,
       sender: 'ai',
       text: fullResponse,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-      confidence: searchResults.length > 0 ? Math.floor(Math.random() * 15) + 85 : undefined,
-      sources: sources.length > 0 ? sources : undefined
+      confidence: searchResults.length > 0 ? Math.round(85 + searchResults[0].score * 10) : undefined,
+      sources: sources.length > 0 ? sources : undefined,
     });
-    
     await convo.save();
 
-    // End stream
-    res.write(`data: ${JSON.stringify({ done: true, fullResponse, sources })}\n\n`);
-    res.end();
+    // ── 9. Send done event with metadata ──
+    res.write(`data: ${JSON.stringify({
+      done: true,
+      fullResponse,
+      sources,
+      conversationId: convo._id.toString(),
+      runtime: {
+        model,
+        latencyMs: latency,
+        chunksSearched: searchResults.length,
+        provider: 'Google Gemini',
+      },
+    })}\n\n`);
 
-  } catch (error) {
-    console.error("Copilot error:", error);
+    res.end();
+  } catch (error: any) {
+    console.error('[Copilot] Error:', error.message);
     if (!res.headersSent) {
       res.status(500).json({ error: 'Internal server error.' });
     } else {
-      res.write(`data: ${JSON.stringify({ error: "Sorry, I encountered a systemic error." })}\n\n`);
+      res.write(`data: ${JSON.stringify({ error: 'A server error occurred. Please try again.' })}\n\n`);
       res.end();
     }
+  }
+};
+
+/** GET /api/copilot/history?workspaceId=... */
+export const getConversationHistory = async (req: Request, res: Response) => {
+  try {
+    const { workspaceId } = req.query;
+    if (!workspaceId) {
+      res.status(400).json({ error: 'workspaceId is required.' });
+      return;
+    }
+
+    const conversations = await Conversation.find({ workspaceId: workspaceId as string })
+      .select('_id title createdAt messages')
+      .sort({ updatedAt: -1 })
+      .limit(20)
+      .lean();
+
+    res.json({ success: true, data: conversations });
+  } catch (error: any) {
+    res.status(500).json({ error: 'Failed to fetch history.' });
   }
 };
