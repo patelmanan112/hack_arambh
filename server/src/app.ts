@@ -16,6 +16,7 @@ import { createWorkspaceManagementRoutes } from "./routes/workspace-management.r
 import { RepositoryController } from "./controllers/repository.controller.js";
 import { WorkspaceController } from "./controllers/workspace.controller.js";
 import { WorkspaceManagementController } from "./controllers/workspace-management.controller.js";
+import copilotRoutes from "./routes/copilot.routes.js";
 import { initializePassport } from "./services/passport/index.js";
 
 export function createApp() {
@@ -50,6 +51,7 @@ export function createApp() {
   app.use("/api/repository", createRepositoryRoutes(repositoryController));
   app.use("/api/workspace", createWorkspaceRoutes(workspaceController));
   app.use("/api/workspaces", createWorkspaceManagementRoutes(workspaceManagementController));
+  app.use("/api/copilot", copilotRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

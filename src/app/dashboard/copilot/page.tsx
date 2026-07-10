@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import React, { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -221,7 +221,7 @@ export default function CopilotPage() {
             >
               <div className="flex items-center gap-2 text-[10px] text-white/30 mb-1.5">
                 <span>{msg.sender === "user" ? "You" : "RecallIQ AI"}</span>
-                <span>•</span>
+                <span>ΓÇó</span>
                 <span>{msg.timestamp}</span>
               </div>
               
