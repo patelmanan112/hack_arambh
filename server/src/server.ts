@@ -9,10 +9,13 @@ dotenv.config({ path: path.join(serverRoot, "..", ".env.local") });
 
 import { createApp } from "./app.js";
 import { connectDB } from "./config/db.js";
+import { initQdrant } from "./services/qdrant.service.js";
 
 async function startServer() {
   try {
     const { app, config } = createApp();
+
+    await initQdrant();
 
     const dbConnected = await connectDB(config);
     if (!dbConnected) {

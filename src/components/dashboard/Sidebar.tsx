@@ -30,7 +30,7 @@ export function Sidebar() {
   const pathname = usePathname()
 
   return (
-    <div className="flex h-full w-64 flex-col glass border-r-white/5 shadow-2xl z-20">
+    <div className="hidden md:flex h-full w-64 flex-col glass border-r-white/5 shadow-2xl z-20">
       <div className="flex h-16 items-center px-6">
         <div className="flex items-center gap-2 text-primary font-bold text-xl tracking-tight">
           <BrainCircuit className="h-6 w-6" />
