@@ -74,6 +74,17 @@ export class RepositoryProcessor {
           url: repoDetails.html_url,
           description: repoDetails.description ?? undefined,
           isPrivate: repoDetails.private,
+          language: repoDetails.language ?? undefined,
+          stargazersCount: repoDetails.stargazers_count,
+          forksCount: repoDetails.forks_count,
+          openIssuesCount: repoDetails.open_issues_count,
+        });
+      } else {
+        await RepositoryModel.findByIdAndUpdate(repository._id, {
+          language: repoDetails.language ?? undefined,
+          stargazersCount: repoDetails.stargazers_count,
+          forksCount: repoDetails.forks_count,
+          openIssuesCount: repoDetails.open_issues_count,
         });
       }
 
@@ -206,6 +217,10 @@ export class RepositoryProcessor {
         await this.updateJob(jobId, 'Running', 65, 'Contributors', `Contributors skipped: ${e.message}`, stats);
       }
       await this.updateJob(jobId, 'Running', 70, 'Contributors', `Stored ${stats.contributors} Contributors`, stats);
+
+      await RepositoryModel.findByIdAndUpdate(repository._id, {
+        contributorsCount: stats.contributors,
+      });
 
       // ─────────────────────────────────────────
       // PHASE 2: Chunking → Embedding → Qdrant

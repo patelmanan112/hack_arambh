@@ -119,4 +119,51 @@ export const authApi = {
     `${OAUTH_BASE_URL}/auth/${provider}`,
 };
 
+// ─── Dashboard API ───────────────────────────────────────────────────────────
+
+export interface DashboardData {
+  overview: {
+    repositoryCount: number;
+    commitCount: number;
+    prCount: number;
+    issueCount: number;
+    contributorCount: number;
+    starsCount: number;
+    forksCount: number;
+    healthScore: number;
+  };
+  repositories: Array<{
+    id: string;
+    githubId: number;
+    name: string;
+    fullName: string;
+    owner: string;
+    url: string;
+    language?: string;
+    stargazersCount: number;
+    forksCount: number;
+    openIssuesCount: number;
+    contributorsCount: number;
+    updatedAt: string;
+    healthScore: number;
+  }>;
+  recentActivity: {
+    commits: Array<{ id: string; sha: string; message: string; author: string; date: string; url: string; repository: string; }>;
+    prs: Array<{ id: string; title: string; author: string; state: string; date: string; url: string; repository: string; }>;
+    issues: Array<{ id: string; title: string; status: string; author: string; date: string; repository: string; }>;
+  };
+  charts: {
+    commitActivity: Array<{ date: string; commits: number; }>;
+    languageDistribution: Array<{ name: string; value: number; percentage: number; }>;
+    topContributors: Array<{ name: string; avatar: string; commits: number; prs: number; }>;
+    issueAnalytics: Array<{ status: string; count: number; }>;
+    prAnalytics: Array<{ state: string; count: number; }>;
+  };
+}
+
+export const dashboardApi = {
+  getWorkspaceDashboard: (workspaceId: string) => 
+    request<DashboardData>(`/dashboard/workspace/${workspaceId}`),
+};
+
 export { ApiError, request };
