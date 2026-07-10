@@ -118,6 +118,7 @@ export default function CopilotPage() {
       let buffer = ""
       let sources: Message["sources"] | undefined
       let finalResponse = ""
+      let backendConfidence: number | undefined
 
       const flushBuffer = () => {
         if (!buffer.trim()) return
@@ -144,6 +145,10 @@ export default function CopilotPage() {
 
         if (event.sources) {
           sources = event.sources
+        }
+
+        if (event.confidence !== undefined) {
+          backendConfidence = event.confidence
         }
       }
 
@@ -179,6 +184,10 @@ export default function CopilotPage() {
           if (event.sources) {
             sources = event.sources
           }
+
+          if (event.confidence !== undefined) {
+            backendConfidence = event.confidence
+          }
         }
       }
 
@@ -186,7 +195,12 @@ export default function CopilotPage() {
 
       setMessages(prev => prev.map(msg =>
         msg.id === aiMessageId
-          ? { ...msg, text: msg.text || finalResponse, confidence: 90, sources }
+          ? { 
+              ...msg, 
+              text: msg.text || finalResponse, 
+              confidence: backendConfidence, 
+              sources 
+            }
           : msg
       ))
     } catch (error: any) {

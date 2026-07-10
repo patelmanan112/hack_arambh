@@ -100,11 +100,22 @@ ${message}`;
     // ── 7. Stream via cascadeflow ──
     let fullResponse = '';
     const aiMessageId = uuidv4();
+    let model = 'gemini-2.0-flash-exp';
+    let latency = 0;
 
-    const { model, latency } = await streamCascadeFlow(prompt, systemInstruction, (chunk: string) => {
-      fullResponse += chunk;
-      res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
-    });
+    // If no search results, provide a clear fallback response
+    if (searchResults.length === 0) {
+      fullResponse = "I couldn't find enough information in your connected engineering knowledge to answer this question. Please make sure your repositories are synced and have relevant data.";
+      res.write(`data: ${JSON.stringify({ chunk: fullResponse })}\n\n`);
+      res.write(`data: ${JSON.stringify({ fullResponse })}\n\n`);
+    } else {
+      const result = await streamCascadeFlow(prompt, systemInstruction, (chunk: string) => {
+        fullResponse += chunk;
+        res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
+      });
+      model = result.model;
+      latency = result.latency;
+    }
 
     // ── 8. Store AI response in Hindsight ──
     convo.messages.push({
@@ -118,11 +129,13 @@ ${message}`;
     await convo.save();
 
     // ── 9. Send done event with metadata ──
+    const calculatedConfidence = searchResults.length > 0 ? Math.round(85 + searchResults[0].score * 10) : 0;
     res.write(`data: ${JSON.stringify({
       done: true,
       fullResponse,
       sources,
       conversationId: convo._id.toString(),
+      confidence: calculatedConfidence,
       runtime: {
         model,
         latencyMs: latency,
