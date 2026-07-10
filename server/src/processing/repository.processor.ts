@@ -289,14 +289,21 @@ export class RepositoryProcessor {
         },
       }));
 
-      // Clear old chunks for this workspace before inserting fresh ones
-      await deleteWorkspaceChunks(workspaceId);
-      await upsertChunks(qdrantChunks);
-
-      await this.updateJob(
-        jobId, 'Running', 91, 'Creating vector index',
-        `Uploaded ${qdrantChunks.length} vectors to Qdrant ✓`, stats
-      );
+      // Upload to Qdrant (non-fatal: job completes even if this step fails)
+      try {
+        await deleteWorkspaceChunks(workspaceId);
+        await upsertChunks(qdrantChunks);
+        await this.updateJob(
+          jobId, 'Running', 91, 'Creating vector index',
+          `Uploaded ${qdrantChunks.length} vectors to Qdrant ✓`, stats
+        );
+      } catch (qdrantError: any) {
+        console.error('[Processor] Qdrant upload failed:', qdrantError.message);
+        await this.updateJob(
+          jobId, 'Running', 91, 'Creating vector index',
+          `Qdrant upload issue (${qdrantError.message}) — will retry on next query`, stats
+        );
+      }
 
       // ── Hindsight: Mark workspace as knowledge-ready ──
       await this.updateJob(
