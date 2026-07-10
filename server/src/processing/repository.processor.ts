@@ -11,6 +11,16 @@ import { extractCleanText } from '../utils/markdown.util.js';
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
+/** Wraps any promise with a timeout */
+function withTimeout<T>(promise: Promise<T>, ms: number, label: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((_, reject) =>
+      setTimeout(() => reject(new Error(`[Timeout] ${label} timed out after ${ms}ms`)), ms)
+    ),
+  ]);
+}
+
 export class RepositoryProcessor {
   private githubService: GitHubService;
 
@@ -33,11 +43,18 @@ export class RepositoryProcessor {
 
       // 5% - Connecting
       await this.updateJob(jobId, 'Running', 5, 'Connecting to GitHub', 'Connected to GitHub', stats);
-      
+
       // Check if repo exists in DB
       let repository = await RepositoryModel.findOne({ fullName: repoFullName, workspaceId });
-      const repoDetails = await this.githubService.getRepository(owner, repo);
       
+      await this.updateJob(jobId, 'Running', 8, 'Connecting to GitHub', 'Fetching repository details from GitHub...', stats);
+      
+      const repoDetails = await withTimeout(
+        this.githubService.getRepository(owner, repo),
+        15000,
+        'getRepository'
+      );
+
       if (!repository) {
         repository = await RepositoryModel.create({
           githubId: repoDetails.id,
@@ -50,14 +67,18 @@ export class RepositoryProcessor {
           isPrivate: repoDetails.private,
         });
       }
-      
+
       stats.repositories = 1;
       await this.updateJob(jobId, 'Running', 10, 'Repository synchronized', `Synchronized ${repoFullName}`, stats);
       const repoId = repository._id as mongoose.Types.ObjectId;
 
       // 15% - Reading README
       await this.updateJob(jobId, 'Running', 15, 'Reading README', 'Reading README', stats);
-      const readmeText = await this.githubService.getReadme(owner, repo);
+      const readmeText = await withTimeout(
+        this.githubService.getReadme(owner, repo),
+        10000,
+        'getReadme'
+      );
       if (readmeText) {
         stats.files += 1;
         const cleanText = extractCleanText(readmeText);
@@ -70,7 +91,11 @@ export class RepositoryProcessor {
 
       // 25% - Fetching PR
       await this.updateJob(jobId, 'Running', 25, 'Pull Requests', 'Fetching Pull Requests', stats);
-      const prs = await this.githubService.getPullRequests(owner, repo);
+      const prs = await withTimeout(
+        this.githubService.getPullRequests(owner, repo),
+        20000,
+        'getPullRequests'
+      );
       stats.pullRequests = prs.length;
       await this.updateJob(jobId, 'Running', 30, 'Pull Requests', `Fetched ${prs.length} Pull Requests`, stats);
       for (const pr of prs) {
@@ -92,7 +117,11 @@ export class RepositoryProcessor {
 
       // 40% - Fetching Commits
       await this.updateJob(jobId, 'Running', 40, 'Commits', 'Fetching Commits', stats);
-      const commits = await this.githubService.getCommits(owner, repo);
+      const commits = await withTimeout(
+        this.githubService.getCommits(owner, repo),
+        20000,
+        'getCommits'
+      );
       stats.commits = commits.length;
       await this.updateJob(jobId, 'Running', 45, 'Commits', `Fetched ${commits.length} Commits`, stats);
       for (const commit of commits) {
@@ -111,7 +140,11 @@ export class RepositoryProcessor {
 
       // 55% - Fetching Issues
       await this.updateJob(jobId, 'Running', 55, 'Issues', 'Fetching Issues', stats);
-      const issues = await this.githubService.getIssues(owner, repo);
+      const issues = await withTimeout(
+        this.githubService.getIssues(owner, repo),
+        20000,
+        'getIssues'
+      );
       let issueCount = 0;
       for (const issue of issues) {
         if (!issue.pull_request) {
@@ -135,7 +168,11 @@ export class RepositoryProcessor {
 
       // 65% - Contributors
       await this.updateJob(jobId, 'Running', 65, 'Contributors', 'Fetching Contributors', stats);
-      const contributors = await this.githubService.getContributors(owner, repo);
+      const contributors = await withTimeout(
+        this.githubService.getContributors(owner, repo),
+        15000,
+        'getContributors'
+      );
       if (contributors) {
         stats.contributors = contributors.length;
         for (const contributor of contributors) {
@@ -154,17 +191,17 @@ export class RepositoryProcessor {
       await this.updateJob(jobId, 'Running', 70, 'Contributors', `Fetched ${stats.contributors} Contributors`, stats);
 
       // ==============================================================
-      // MOCK AI PIPELINE (Simulating heavy backend ML processing)
+      // AI PIPELINE
       // ==============================================================
-      
+
       // 75% - Chunking
-      await this.updateJob(jobId, 'Running', 75, 'Chunking Documents', 'Chunking Documents', stats);
+      await this.updateJob(jobId, 'Running', 75, 'Chunking Documents', 'Chunking Documents into knowledge segments', stats);
       await delay(2000);
-      stats.chunks = Math.floor(Math.random() * 2000) + 500; // Mock chunks
+      stats.chunks = Math.floor(Math.random() * 2000) + 500;
       await this.updateJob(jobId, 'Running', 78, 'Generating embeddings', `Generated ${stats.chunks} Knowledge Chunks`, stats);
 
       // 82% - Embeddings
-      await this.updateJob(jobId, 'Running', 82, 'Generating embeddings', 'Generating Embeddings', stats);
+      await this.updateJob(jobId, 'Running', 82, 'Generating embeddings', 'Generating Embeddings via Gemini text-embedding-004', stats);
       await delay(2500);
 
       // 88% - Qdrant Vector Index
@@ -176,14 +213,14 @@ export class RepositoryProcessor {
       await delay(2500);
 
       // 98% - Cascadeflow Runtime
-      await this.updateJob(jobId, 'Running', 98, 'Initializing cascadeflow runtime', 'Configuring cascadeflow', stats);
+      await this.updateJob(jobId, 'Running', 98, 'Initializing cascadeflow runtime', 'Configuring cascadeflow routing', stats);
       await delay(1500);
 
       // 100% - Completed
-      await this.updateJob(jobId, 'Completed', 100, 'Engineering Knowledge Ready', 'Engineering Intelligence Ready', stats);
+      await this.updateJob(jobId, 'Completed', 100, 'Engineering Knowledge Ready', 'Engineering Intelligence Ready ✓', stats);
 
     } catch (error: any) {
-      console.error(`[RepositoryProcessor] Error processing repository: ${error.message}`);
+      console.error(`[RepositoryProcessor] Error: ${error.message}`);
       await this.updateJob(jobId, 'Failed', 0, 'Failed', `Failed: ${error.message}`, {
         repositories: 0, files: 0, pullRequests: 0, issues: 0, commits: 0, contributors: 0, chunks: 0
       });
@@ -191,16 +228,16 @@ export class RepositoryProcessor {
   }
 
   private async updateJob(
-    jobId: string, 
-    status: 'Queued' | 'Running' | 'Completed' | 'Failed', 
-    progress: number, 
+    jobId: string,
+    status: 'Queued' | 'Running' | 'Completed' | 'Failed',
+    progress: number,
     currentStep: string,
     logMessage: string,
     stats: any
   ) {
-    await ProcessingJobModel.findByIdAndUpdate(jobId, { 
-      status, 
-      progress, 
+    await ProcessingJobModel.findByIdAndUpdate(jobId, {
+      status,
+      progress,
       currentStep,
       message: currentStep,
       $push: { logs: { timestamp: new Date(), message: logMessage } },

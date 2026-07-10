@@ -32,7 +32,15 @@ export function Navbar() {
 
       <div className="flex items-center gap-4">
         {!isLoading && isAuthenticated ? (
-          <UserMenu />
+          <div className="flex items-center gap-3">
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-2 rounded-full bg-primary hover:bg-primary-hover text-white px-5 py-2 text-sm font-medium transition-colors"
+            >
+              Go to Dashboard
+            </Link>
+            <UserMenu />
+          </div>
         ) : (
           <>
             <Link href="/login" className="text-sm font-medium hover:text-white/80 transition-colors hidden sm:block">
