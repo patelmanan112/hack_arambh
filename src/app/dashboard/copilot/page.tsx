@@ -4,6 +4,8 @@ import React, { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Card, CardContent } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
+import { useWorkspace } from "@/context/WorkspaceContext"
+import { API_BASE_URL, getToken } from "@/lib/api"
 import { 
   Sparkles, Send, ArrowRight, MessageSquare, Database, 
   Share2, FileText, Cpu, Check, TerminalSquare, AlertCircle,
@@ -36,45 +38,25 @@ const suggestions = [
   { text: "Summarize yesterday's architecture meeting.", label: "Meeting Summary" }
 ];
 
-const mockResponses: Record<string, { text: string; confidence: number; sources: Message["sources"] }> = {
-  "explain the new authentication flow.": {
-    text: "The new authentication flow leverages JWT tokens signed by the backend server via Passport.js, storing the token inside localStorage as `recalliq_jwt`. Upon initial onboarding or page reload, the client checks the query string for `?token=...`, saves it, and scrubs the URL. All requests from `src/lib/api.ts` are automatically decorated with an `Authorization: Bearer <token>` header. Let me know if you want to inspect `src/context/AuthContext.tsx` code.",
-    confidence: 98,
-    sources: [
-      { type: "code", name: "src/context/AuthContext.tsx:L12-45", link: "#" },
-      { type: "code", name: "src/lib/api.ts:L70-85", link: "#" },
-      { type: "slack", name: "Slack: #auth-refactor thread", link: "#" }
-    ]
-  },
-  "why was redis caching introduced?": {
-    text: "Redis caching was introduced to optimize token metadata lookups and prevent DB overload. The backend coordinates cache calls in the repository model pipelines. This change reduced server latency averages from 180ms to 124ms, particularly for repeat requests on dashboard statistics.",
-    confidence: 96,
-    sources: [
-      { type: "code", name: "server/src/models/Commit.model.ts", link: "#" },
-      { type: "doc", name: "ADR #14: Caching Layer Specification", link: "#" }
-    ]
-  },
-  "who knows vector operations best?": {
-    text: "Based on contribution volumes in `vector-ops-engine` (which handles cosine distance operations and AVX-512 intrinsic optimizations), Sarah has authored 65% of changes, followed by Manan with 28%. I recommend reaching out to Sarah for core mathematical questions, or Manan for integration details.",
-    confidence: 94,
-    sources: [
-      { type: "code", name: "vector-ops-engine/src/lib.rs", link: "#" },
-      { type: "slack", name: "Slack: #vector-math discussion", link: "#" }
-    ]
-  },
-  "summarize yesterday's architecture meeting.": {
-    text: "Yesterday's meeting aligned on deprecating `legacy-data-ingest` in favor of TypeScript integrations. Key milestones include: \n1. Deprecate Go modules in the CLI where overlapping schemas occur.\n2. Add cache optimization stages in the CI/CD runners to drop build latency by 2 minutes.\n3. Appoint Aman as backup reviewer to unblock Sarah's queue bottlenecks.",
-    confidence: 92,
-    sources: [
-      { type: "doc", name: "Meeting Notes: Sprint 4 Alignment", link: "#" },
-      { type: "slack", name: "Slack: #planning thread", link: "#" }
-    ]
+function parseSseChunk(chunkText: string) {
+  const lines = chunkText.split("\n");
+  for (const line of lines) {
+    if (!line.startsWith("data:")) continue;
+    const payload = line.replace(/^data:\s*/, "");
+    try {
+      return JSON.parse(payload);
+    } catch {
+      // ignore non-JSON SSE lines
+    }
   }
-};
+  return null;
+}
 
 export default function CopilotPage() {
+  const { workspaceId } = useWorkspace();
   const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [inputValue, setInputValue] = useState("")
+  const [conversationId, setConversationId] = useState<string | null>(null)
   const [isTyping, setIsTyping] = useState(false)
   const chatEndRef = useRef<HTMLDivElement>(null)
 
@@ -83,13 +65,13 @@ export default function CopilotPage() {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" })
   }, [messages, isTyping])
 
-  const handleSendMessage = (text: string) => {
+  const handleSendMessage = async (text: string) => {
     if (!text.trim()) return
 
     const userMsg: Message = {
       id: Date.now(),
       sender: "user",
-      text: text,
+      text,
       timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
     }
 
@@ -97,27 +79,83 @@ export default function CopilotPage() {
     setInputValue("")
     setIsTyping(true)
 
-    // Simulate AI thinking and reply
-    setTimeout(() => {
-      const lowerText = text.trim().toLowerCase()
-      const match = mockResponses[lowerText] || {
-        text: "I've scanned the codebase regarding your query. I don't see any explicit implementations, but based on dependencies like Radix and Tailwind, we can construct custom UI configurations to solve this. What specific module would you like to target?",
-        confidence: 85,
-        sources: [{ type: "doc", name: "RecallIQ General Documentation", link: "#" }]
-      }
-
-      const aiMsg: Message = {
+    if (!workspaceId) {
+      setMessages(prev => [...prev, {
         id: Date.now() + 1,
         sender: "ai",
-        text: match.text,
-        confidence: match.confidence,
-        sources: match.sources,
+        text: "Please select or create a workspace first so the AI can look up your engineering knowledge.",
         timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      }])
+      setIsTyping(false)
+      return
+    }
+
+    const aiMessageId = Date.now() + 1
+    setMessages(prev => [...prev, {
+      id: aiMessageId,
+      sender: "ai",
+      text: "",
+      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    }])
+
+    try {
+      const token = getToken()
+      const response = await fetch(`${API_BASE_URL}/copilot/ask`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
+        body: JSON.stringify({ message: text, workspaceId, conversationId })
+      })
+
+      if (!response.ok || !response.body) {
+        throw new Error(`Copilot request failed with status ${response.status}`)
       }
 
-      setMessages(prev => [...prev, aiMsg])
+      const reader = response.body.getReader()
+      const decoder = new TextDecoder()
+      let buffer = ""
+      let sources: Message["sources"] | undefined
+
+      while (true) {
+        const { value, done } = await reader.read()
+        if (done) break
+        buffer += decoder.decode(value, { stream: true })
+
+        const chunks = buffer.split("\n\n")
+        buffer = chunks.pop() || ""
+
+        for (const chunk of chunks) {
+          const event = parseSseChunk(chunk)
+          if (!event) continue
+
+          if (event.chunk) {
+            setMessages(prev => prev.map(msg =>
+              msg.id === aiMessageId ? { ...msg, text: msg.text + event.chunk } : msg
+            ))
+          }
+
+          if (event.conversationId) {
+            setConversationId(event.conversationId)
+          }
+
+          if (event.sources) {
+            sources = event.sources
+          }
+        }
+      }
+
+      setMessages(prev => prev.map(msg =>
+        msg.id === aiMessageId ? { ...msg, confidence: 90, sources } : msg
+      ))
+    } catch (error: any) {
+      setMessages(prev => prev.map(msg =>
+        msg.id === aiMessageId ? { ...msg, text: `Error: ${error.message}` } : msg
+      ))
+    } finally {
       setIsTyping(false)
-    }, 1500)
+    }
   }
 
   const handleClearHistory = () => {

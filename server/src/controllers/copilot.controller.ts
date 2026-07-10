@@ -73,16 +73,16 @@ export const askCopilot = async (req: Request, res: Response) => {
     }
 
     // ── 6. Build cascadeflow prompt ──
-    const prompt = `You are the RecallIQ Engineering Copilot — an expert AI assistant that helps engineers understand their codebase, architecture decisions, pull requests, issues, commits, and team knowledge.
+    const systemInstruction = `You are the RecallIQ Engineering Copilot — an expert AI assistant that helps engineers understand their codebase, architecture decisions, pull requests, issues, commits, and team knowledge.
 
 STRICT RULES:
 1. Answer ONLY using the retrieved context provided below.
 2. If the answer cannot be found in the context, respond EXACTLY: "I couldn't find enough information in your connected engineering knowledge."
 3. NEVER hallucinate, guess, or use knowledge outside the provided context.
 4. Format answers in clean Markdown with code blocks where relevant.
-5. Be precise and technical. Reference specific source names.
+5. Be precise and technical. Reference specific source names.`;
 
-━━━━━━━━━━━━━━━━━━━━━━━━
+    const prompt = `━━━━━━━━━━━━━━━━━━━━━━━━
 HINDSIGHT (Conversation Memory):
 ━━━━━━━━━━━━━━━━━━━━━━━━
 ${hindsightMessages || 'No previous conversation.'}
@@ -101,7 +101,7 @@ ${message}`;
     let fullResponse = '';
     const aiMessageId = uuidv4();
 
-    const { model, latency } = await streamCascadeFlow(prompt, (chunk: string) => {
+    const { model, latency } = await streamCascadeFlow(prompt, systemInstruction, (chunk: string) => {
       fullResponse += chunk;
       res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
     });

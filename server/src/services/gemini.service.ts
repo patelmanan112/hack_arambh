@@ -56,13 +56,20 @@ export const generateEmbeddingsBatch = async (
  */
 export const streamCascadeFlow = async (
   prompt: string,
+  systemInstruction: string,
   onChunk: (text: string) => void
 ): Promise<{ model: string; latency: number }> => {
   const startTime = Date.now();
   const modelName = 'gemini-2.0-flash-exp';
 
   try {
-    const model = genAI.getGenerativeModel({ model: modelName });
+    const model = genAI.getGenerativeModel({ 
+      model: modelName,
+      systemInstruction,
+      generationConfig: {
+        temperature: 0.1,
+      }
+    });
     const result = await model.generateContentStream(prompt);
 
     for await (const chunk of result.stream) {
