@@ -104,15 +104,18 @@ ${message}`;
     let latency = 0;
 
     // If no search results, provide a clear fallback response
-    if (searchResults.length === 0) {
+      if (searchResults.length === 0) {
       fullResponse = "I couldn't find enough information in your connected engineering knowledge to answer this question. Please make sure your repositories are synced and have relevant data.";
       res.write(`data: ${JSON.stringify({ chunk: fullResponse })}\n\n`);
-      res.write(`data: ${JSON.stringify({ fullResponse })}\n\n`);
     } else {
       const result = await streamCascadeFlow(prompt, systemInstruction, (chunk: string) => {
         fullResponse += chunk;
         res.write(`data: ${JSON.stringify({ chunk })}\n\n`);
       });
+      if (!fullResponse.trim()) {
+        fullResponse = "I couldn't find enough information in your connected engineering knowledge to answer this question. Please make sure your repositories are synced and have relevant data.";
+        res.write(`data: ${JSON.stringify({ chunk: fullResponse })}\n\n`);
+      }
       model = result.model;
       latency = result.latency;
     }

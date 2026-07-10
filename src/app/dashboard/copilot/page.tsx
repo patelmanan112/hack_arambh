@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import React, { useState, useRef, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
@@ -197,7 +197,7 @@ export default function CopilotPage() {
         msg.id === aiMessageId
           ? { 
               ...msg, 
-              text: msg.text || finalResponse, 
+              text: msg.text || finalResponse || "I couldn't find enough information in your connected engineering knowledge.", 
               confidence: backendConfidence, 
               sources 
             }
