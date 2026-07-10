@@ -1,6 +1,6 @@
 # Recall IQ
 
-Recall IQ is an advanced GitHub repository analytics and intelligence platform. It provides deep insights into your codebase's health, developer activity, and project timeline, supercharged with an AI Copilot to help you make informed decisions.
+Recall IQ is an advanced AI analytics and intelligence platform. It provides deep insights into your codebase's health, developer activity, and project timeline, supercharged with an AI Copilot to help you make informed decisions.
 
 ## 🚀 Features
 
