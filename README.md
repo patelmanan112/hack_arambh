@@ -1,97 +1,275 @@
-# Recall IQ
+# 🧠 RecallIQ – AI-Powered Engineering Intelligence Platform
 
-Recall IQ is an advanced AI analytics and intelligence platform. It provides deep insights into your codebase's health, developer activity, and project timeline, supercharged with an AI Copilot to help you make informed decisions.
+## 📖 Overview
 
-## 🚀 Features
+RecallIQ is an AI-powered Engineering Intelligence Platform that transforms scattered engineering knowledge into a single searchable memory system. It connects with GitHub, Slack, Notion, and meeting documents to understand an organization's technical knowledge and allows developers to retrieve accurate, context-aware answers using natural language.
 
-*   **Comprehensive Dashboard**: Get a birds-eye view of your project's health, runtime status, and overview statistics.
-*   **Activity & Contribution Tracking**: Visualize commit activity, track top contributors, and monitor pull requests and issues.
-*   **AI Copilot**: An integrated AI assistant to help you understand complex code decisions and project trajectories.
-*   **Decision Graph**: Visualize the architectural and project decisions over time.
-*   **GitHub Integration**: Seamless OAuth login and repository syncing.
+Instead of manually searching through commits, pull requests, issues, documentation, and chat history, developers can simply ask RecallIQ questions and receive evidence-backed answers within seconds.
 
-## 🛠️ Tech Stack
+## 🚨 Problem Statement
 
-This project is structured as a monorepo containing a Next.js frontend and an Express backend.
+Modern engineering teams store knowledge across multiple platforms:
 
-### Frontend
-*   **Framework**: [Next.js 16](https://nextjs.org/) (App Router)
-*   **UI Library**: [React 19](https://react.dev/)
-*   **Language**: [TypeScript](https://www.typescriptlang.org/)
-*   **Styling**: [Tailwind CSS v4](https://tailwindcss.com/)
-*   **Components**: [Radix UI](https://www.radix-ui.com/) (Accessible headless components) & [Lucide React](https://lucide.dev/) (Icons)
-*   **Animations**: [Framer Motion](https://www.framer.com/motion/)
-*   **Data Fetching**: [React Query](https://tanstack.com/query/latest) (@tanstack/react-query)
-*   **Charts**: [Recharts](https://recharts.org/)
-*   **Forms & Validation**: [React Hook Form](https://react-hook-form.com/) & [Zod](https://zod.dev/)
+- GitHub repositories
+- Pull Requests
+- Issues
+- Slack discussions
+- Notion documentation
+- Meeting notes
+- Technical documents
 
-### Backend (Server)
-*   **Runtime**: [Node.js](https://nodejs.org/)
-*   **Framework**: [Express.js](https://expressjs.com/)
-*   **Language**: [TypeScript](https://www.typescriptlang.org/)
-*   **Database**: [MongoDB](https://www.mongodb.com/) with [Mongoose](https://mongoosejs.com/) ORM
-*   **Authentication**: [Passport.js](https://www.passportjs.org/) (GitHub OAuth Strategy) & JWT
-*   **GitHub API**: [Octokit](https://github.com/octokit/octokit.js) (For fetching repo data, commits, PRs, etc.)
+As projects grow, valuable engineering knowledge becomes fragmented, making it difficult for developers to quickly understand decisions, architecture, and implementation details.
 
-## 🔄 Core Workflows
+Engineers often spend hours searching across multiple tools instead of building products.
 
-For hackathon judges and evaluators, here is a breakdown of the core workflows in Recall IQ:
+## 💡 Our Solution
 
-### 1. Authentication & Onboarding Workflow
-1.  User clicks "Login with GitHub" on the frontend.
-2.  The request is routed to the Express backend, which initiates the Passport.js GitHub OAuth flow.
-3.  Upon successful authentication, the backend issues a JWT (JSON Web Token) to the client.
-4.  The user is redirected to the onboarding flow to select and sync their GitHub repositories into a "Workspace".
+RecallIQ creates a centralized Engineering Memory Layer by collecting engineering knowledge from multiple sources and making it searchable through AI.
 
-### 2. Data Synchronization Workflow
-1.  Once a repository is added to a workspace, the backend creates a `ProcessingJob`.
-2.  Using the `Octokit` library, the server communicates with the GitHub API to fetch historical and current data:
-    *   Commits
-    *   Pull Requests
-    *   Issues
-    *   Contributors
-3.  This data is parsed, normalized, and stored in the MongoDB database according to the defined Mongoose schemas (e.g., `Commit.model.ts`, `Issue.model.ts`).
+The platform processes repositories, documentation, discussions, and meeting notes into a semantic knowledge base. Developers can ask questions in natural language, and RecallIQ retrieves the most relevant information before generating evidence-based responses.
 
-### 3. Analytics & Dashboard Workflow
-1.  When the user visits the dashboard, the Next.js frontend makes API requests to the Express backend.
-2.  **React Query** manages the data fetching, caching, and state on the client side.
-3.  The backend aggregates the MongoDB data to calculate metrics like the "Health Score" and "Activity Trends".
-4.  The frontend renders this data using **Recharts** to display the Activity Chart and Timeline, and custom UI components for the Overview Stats.
+## ✨ Key Features
 
-### 4. AI Copilot Workflow
-1.  The user queries the AI Copilot on the dashboard regarding repository insights.
-2.  The backend processes the query, combining it with the contextual data fetched from GitHub (commits, PRs) stored in the database.
-3.  *(Implementation specific)* The query is sent to an LLM to generate insights, explain architectural choices, or summarize project health, presenting the result back to the user via the Copilot UI.
+### 🔐 Secure Authentication
+- GitHub OAuth 2.0
+- Google OAuth 2.0
+- Session-based authentication
+- Workspace management
 
-## 🏃‍♂️ Running the Project Locally
+### 🐙 GitHub Intelligence
+Analyze repositories with AI. Features include:
+- Repository Analysis
+- Commit History
+- Pull Request Analysis
+- Issue Tracking
+- Contributor Analytics
+- Repository Health
+- Language Detection
+- README Analysis
 
-First, ensure you have the required environment variables set up. You will need:
-- MongoDB connection string.
-- GitHub OAuth App credentials (`GITHUB_CLIENT_ID`, `GITHUB_CLIENT_SECRET`).
-- JWT Secret.
+### 🤖 AI Engineering Copilot
+Ask engineering questions like:
+- "Explain the authentication system."
+- "Who implemented the payment module?"
+- "Summarize recent pull requests."
+- "Explain repository architecture."
+- "Show recent breaking changes."
 
-Copy the `.env.local.example` to `.env.local` or `.env` and fill in the values.
+The AI answers using your company's engineering knowledge instead of generic internet knowledge.
 
-The project uses `concurrently` to run both the frontend and backend with a single command.
+### 🧠 Engineering Memory
+RecallIQ remembers previous engineering conversations using Hindsight. This enables:
+- Context-aware conversations
+- Follow-up questions
+- Long-term engineering memory
+- Personalized developer assistance
 
-```bash
-# Install dependencies in the root (frontend)
-npm install
+### ⚡ Runtime Intelligence
+Powered by cascadeflow. Features include:
+- Intelligent model routing
+- Provider routing
+- Retry strategies
+- Runtime monitoring
+- Latency tracking
+- Token usage analytics
+- Cost optimization
+- Fallback handling
 
-# Install dependencies in the server directory
-cd server && npm install
-cd ..
+### 📚 Knowledge Sources
+RecallIQ connects multiple engineering knowledge sources:
 
-# Run both frontend and backend concurrently
-npm run dev:all
+**GitHub**
+- Repositories
+- Commits
+- Pull Requests
+- Issues
+- Contributors
+- README
+
+**Slack**
+- Team discussions
+- Engineering decisions
+- Technical conversations
+
+**Notion**
+- Architecture documentation
+- API documentation
+- Product specifications
+- Engineering documentation
+
+**Meeting Documents**
+- Supports: PDF, DOCX, TXT, Markdown
+- Automatically generates:
+  - Meeting summaries
+  - Action items
+  - Engineering decisions
+  - Deadlines
+
+## 🏗️ AI Architecture
+
+```
+GitHub
+Slack
+Notion
+Meeting Documents
+        │
+        ▼
+Data Collection
+        │
+        ▼
+Data Cleaning
+        │
+        ▼
+Chunking
+        │
+        ▼
+Embedding Generation
+        │
+        ▼
+Qdrant Vector Database
+        │
+────────────────────────────────────
+Developer Question
+        │
+        ▼
+Question Embedding
+        │
+        ▼
+Semantic Search
+        │
+        ▼
+Top Relevant Chunks
+        │
+        ▼
+Hindsight Memory
+        │
+        ▼
+cascadeflow Runtime
+        │
+        ▼
+Groq / Gemini LLM
+        │
+        ▼
+AI Response with Source Citations
 ```
 
-- Frontend runs on `http://localhost:3000`
-- Backend API typically runs on a dedicated port (e.g., `http://localhost:5000` or `8080` based on your setup).
+## 🧠 How RecallIQ Works
 
-## 🗂️ Project Structure Highlights
-- `/src/app`: Next.js App Router pages (Dashboard, Login, Onboarding).
-- `/src/components/dashboard`: Core UI components for the analytics views.
-- `/server/src/models`: MongoDB schemas for tracking GitHub data (User, Repo, Commits, PRs).
-- `/server/src/routes`: Express API endpoints for Auth, Workspaces, and GitHub data.
-- `/server/src/github`: Services for interacting with the Octokit SDK.
+1. User authenticates using GitHub or Google.
+2. GitHub repositories are connected.
+3. Repository data is fetched.
+4. Data is cleaned and divided into semantic chunks.
+5. Chunks are converted into embeddings.
+6. Embeddings are stored in Qdrant.
+7. User asks a question.
+8. The question is converted into an embedding.
+9. Qdrant retrieves the most relevant engineering knowledge.
+10. Hindsight provides previous conversation context.
+11. cascadeflow intelligently routes the AI request.
+12. The LLM generates an accurate, evidence-based response.
+13. The conversation is stored for future context.
+
+## 🚀 Tech Stack
+
+### Frontend
+- **Next.js 15**
+- **React 19**
+- **TypeScript**
+- **Tailwind CSS**
+- **Shadcn UI**
+- **Framer Motion**
+- **React Query**
+- **Recharts**
+- **Lucide React**
+
+### Backend
+- **Node.js**
+- **Express.js**
+- **TypeScript**
+- **Passport.js**
+- **JWT**
+- **Express Session**
+- **REST APIs**
+
+### Database
+- **MongoDB Atlas**
+- **Mongoose**
+
+### AI & Runtime
+- **Groq**
+- **Google Gemini**
+- **Hindsight**
+- **cascadeflow**
+- **RAG (Retrieval-Augmented Generation)**
+
+### Vector Database
+- **Qdrant**
+
+### Integrations
+- **GitHub API**
+- **Slack API**
+- **Notion API**
+
+### Deployment
+- **Vercel** (Frontend)
+- **Render** (Backend)
+- **MongoDB Atlas**
+- **Qdrant Cloud**
+
+## 📊 Dashboard Highlights
+
+- Engineering Health Score
+- Repository Analytics
+- Commit Activity
+- Pull Request Analytics
+- Issue Tracking
+- Contributor Leaderboard
+- Repository Insights
+- AI Copilot
+- Knowledge Sources
+- Runtime Monitoring
+- Engineering Timeline
+
+## 🎯 Use Cases
+
+RecallIQ is designed for:
+- Software Development Teams
+- Engineering Managers
+- Startups
+- Open Source Organizations
+- Product Teams
+- DevOps Teams
+- Enterprise Engineering Organizations
+
+## 🔮 Future Scope
+
+- Jira Integration
+- Microsoft Teams Integration
+- Confluence Integration
+- CI/CD Pipeline Analysis
+- AI Sprint Planning
+- Engineering Risk Prediction
+- Code Quality Intelligence
+- Automated Weekly Engineering Reports
+- Multi-workspace Support
+
+## 🌐 Live Deployment
+
+- **Frontend**: https://re-calliq.vercel.app/
+- **Backend**: https://hack-arambh.onrender.com/
+
+## 👥 Team
+
+**Team Name**: RecallIQ
+
+Built during a Startup Innovation Hackathon to solve the challenge of fragmented engineering knowledge using AI, semantic search, and intelligent runtime orchestration.
+
+## 📜 License
+
+This project is developed for educational, research, and hackathon purposes.
+
+---
+
+## ⭐ Repository Description (Short Version)
+
+RecallIQ is an AI-powered Engineering Intelligence Platform that connects GitHub, Slack, Notion, and meeting documents to create a searchable engineering memory. Using RAG, Qdrant, Hindsight, and cascadeflow, it delivers accurate, context-aware answers with source citations, helping engineering teams retrieve knowledge faster and make informed decisions.
