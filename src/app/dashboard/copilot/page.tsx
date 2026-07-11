@@ -119,6 +119,34 @@ export default function CopilotPage() {
       let sources: Message["sources"] | undefined
       let finalResponse = ""
 
+      const flushBuffer = () => {
+        if (!buffer.trim()) return
+        const event = parseSseChunk(buffer)
+        buffer = ""
+        if (!event) return
+
+        if (event.chunk) {
+          setMessages(prev => prev.map(msg =>
+            msg.id === aiMessageId ? { ...msg, text: msg.text + event.chunk } : msg
+          ))
+        }
+
+        if (event.fullResponse) {
+          finalResponse = event.fullResponse
+          setMessages(prev => prev.map(msg =>
+            msg.id === aiMessageId ? { ...msg, text: event.fullResponse } : msg
+          ))
+        }
+
+        if (event.conversationId) {
+          setConversationId(event.conversationId)
+        }
+
+        if (event.sources) {
+          sources = event.sources
+        }
+      }
+
       while (true) {
         const { value, done } = await reader.read()
         if (done) break
@@ -153,6 +181,8 @@ export default function CopilotPage() {
           }
         }
       }
+
+      flushBuffer()
 
       setMessages(prev => prev.map(msg =>
         msg.id === aiMessageId
