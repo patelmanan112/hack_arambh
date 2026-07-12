@@ -18,10 +18,7 @@ import {
 const navigation = [
   { name: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
   { name: "AI Copilot", href: "/dashboard/copilot", icon: BrainCircuit },
-  { name: "Engineering Intelligence", href: "/dashboard/intelligence", icon: Database },
   { name: "Decision Graph", href: "/dashboard/graph", icon: Network },
-  { name: "Pull Requests", href: "/dashboard/prs", icon: GitPullRequest },
-  { name: "Timeline", href: "/dashboard/timeline", icon: History },
   { name: "Runtime", href: "/dashboard/runtime", icon: TerminalSquare },
   { name: "Settings", href: "/dashboard/settings", icon: Settings },
 ]

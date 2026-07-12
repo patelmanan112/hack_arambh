@@ -13,9 +13,11 @@ import { createGitHubRoutes } from "./routes/github.routes.js";
 import { createRepositoryRoutes } from "./routes/repository.routes.js";
 import { createWorkspaceRoutes } from "./routes/workspace.routes.js";
 import { createWorkspaceManagementRoutes } from "./routes/workspace-management.routes.js";
+import { createDashboardRoutes } from "./routes/dashboard.routes.js";
 import { RepositoryController } from "./controllers/repository.controller.js";
 import { WorkspaceController } from "./controllers/workspace.controller.js";
 import { WorkspaceManagementController } from "./controllers/workspace-management.controller.js";
+import { DashboardController } from "./controllers/dashboard.controller.js";
 import copilotRoutes from "./routes/copilot.routes.js";
 import { initializePassport } from "./services/passport/index.js";
 
@@ -34,6 +36,7 @@ export function createApp() {
   const repositoryController = new RepositoryController();
   const workspaceController = new WorkspaceController();
   const workspaceManagementController = new WorkspaceManagementController();
+  const dashboardController = new DashboardController();
 
   app.set("trust proxy", 1);
 
@@ -51,6 +54,7 @@ export function createApp() {
   app.use("/api/repository", createRepositoryRoutes(repositoryController));
   app.use("/api/workspace", createWorkspaceRoutes(workspaceController));
   app.use("/api/workspaces", createWorkspaceManagementRoutes(workspaceManagementController));
+  app.use("/api/dashboard", createDashboardRoutes(dashboardController));
   app.use("/api/copilot", copilotRoutes);
 
   app.use(notFoundHandler);

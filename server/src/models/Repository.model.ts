@@ -9,6 +9,11 @@ export interface IRepository extends Document {
   url: string;
   description?: string;
   isPrivate: boolean;
+  language?: string;
+  stargazersCount: number;
+  forksCount: number;
+  openIssuesCount: number;
+  contributorsCount: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -22,6 +27,11 @@ const RepositorySchema: Schema = new Schema({
   url: { type: String, required: true },
   description: { type: String },
   isPrivate: { type: Boolean, default: false },
+  language: { type: String },
+  stargazersCount: { type: Number, default: 0 },
+  forksCount: { type: Number, default: 0 },
+  openIssuesCount: { type: Number, default: 0 },
+  contributorsCount: { type: Number, default: 0 },
 }, { timestamps: true });
 
 export default mongoose.model<IRepository>('Repository', RepositorySchema);
